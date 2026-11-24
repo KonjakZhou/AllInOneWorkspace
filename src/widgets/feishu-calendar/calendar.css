@@ -114,6 +114,22 @@
     Menlo,
     monospace;
 }
+.calendar-next.is-finished strong {
+  white-space: normal;
+  line-height: 1.6;
+}
+.calendar-encouragement {
+  margin: 0;
+  color: #9b7947;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.calendar-encouragement > span {
+  display: inline-block;
+  font-size: 19px;
+  vertical-align: middle;
+  margin-left: 3px;
+}
 .calendar-scroll {
   flex: 1;
   overflow: auto;
@@ -175,6 +191,7 @@
 }
 .calendar-event-details {
   position: fixed;
+  pointer-events: none;
   z-index: 1000;
   width: min(320px, calc(100vw - 24px));
   max-height: min(360px, calc(100vh - 24px));

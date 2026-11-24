@@ -29,6 +29,7 @@ async function injectMocks() {
       registrationConfirmed: false,
       grantConfirmed: false,
       browserOpens: 0,
+      todayFinished: false,
     }
     Object.assign(globalThis, { __feishuTest: state })
     // Test-only boundary replacements in the real Electron process. Production has no bypass.
@@ -160,7 +161,11 @@ async function injectMocks() {
           start_time: { date: key(base) },
           end_time: { date: key(tomorrow) },
         })
-        return reply({ items })
+        return reply({
+          items: state.todayFinished
+            ? items.filter((item) => (item as { event_id: string }).event_id !== 'next')
+            : items,
+        })
       }
       throw new Error('Unexpected test request')
     }
@@ -352,8 +357,9 @@ test('calendar shows relative tags and hover details with rooms, keyboard access
   const tags = await card.locator('.calendar-event-tag').allTextContents()
   expect(tags).toContain('TODAY')
   expect(tags).toContain('NEXT')
-  expect(tags).toContain('TOMORROW')
-  expect(tags.every((tag) => ['TODAY', 'NEXT', 'TOMORROW'].includes(tag))).toBe(true)
+  expect(tags.every((tag) => ['TODAY', 'NEXT'].includes(tag))).toBe(true)
+  await expect(card.locator('.calendar-divider').first()).toContainText('·明天')
+  await expect(card.locator('.calendar-day').nth(1).locator('.calendar-event-tag')).toHaveCount(0)
   await expect(card.locator('.calendar-day').nth(2).locator('.calendar-event-tag')).toHaveCount(0)
   const row = card.locator('.calendar-event.is-next')
   await row.hover()
@@ -370,8 +376,6 @@ test('calendar shows relative tags and hover details with rooms, keyboard access
   expect(bounds.y).toBeGreaterThanOrEqual(0)
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width)
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height)
-  await detail.hover()
-  await expect(detail).toBeVisible()
   await page.screenshot({ path: 'test-results/feishu-calendar-details.png' })
   await page.mouse.move(5, 5)
   await expect(detail).toHaveCount(0)
@@ -392,6 +396,36 @@ test('calendar shows relative tags and hover details with rooms, keyboard access
   await expect(detail).toBeVisible()
   await page.getByRole('button', { name: '应用设置' }).click()
   await expect(detail).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
+test('overview celebrates no remaining events today while keeping tomorrow in its own group', async () => {
+  await add()
+  const complete = await authorize()
+  await complete()
+  await page.getByRole('button', { name: '关闭对话框' }).click()
+  const card = page.getByRole('article', { name: '飞书日历', exact: true })
+  await expect(card.locator('.calendar-next')).toContainText('下一场 · 设计评审')
+  await app.evaluate(() => {
+    ;(
+      globalThis as unknown as { __feishuTest: { todayFinished: boolean } }
+    ).__feishuTest.todayFinished = true
+  })
+  await card.getByRole('button', { name: '刷新飞书日历' }).click()
+  await expect(card.locator('.calendar-next')).toContainText('今天没有后续日程了')
+  await expect(card.locator('.calendar-next')).toContainText('今天也辛苦啦')
+  await expect(card.getByRole('img', { name: '送你一颗心' })).toBeVisible()
+  await expect(card.locator('.calendar-next time')).toHaveCount(0)
+  await expect(card.locator('.calendar-next')).not.toContainText('项目同步')
+  await expect(card.locator('.calendar-event.is-next')).toContainText('项目同步')
+  await expect(card.locator('.calendar-divider').first()).toContainText('·明天')
+  await card.screenshot({ path: 'test-results/feishu-calendar-today-finished.png' })
+  await app.evaluate(() => {
+    ;(globalThis as unknown as { __feishuTest: { failure: number } }).__feishuTest.failure = 500
+  })
+  await card.getByRole('button', { name: '刷新飞书日历' }).click()
+  await expect(card.locator('.calendar-next')).toContainText('暂时无法确认今天的日程')
+  await expect(card.getByRole('img', { name: '送你一颗心' })).toHaveCount(0)
   expect(errors).toEqual([])
 })
 

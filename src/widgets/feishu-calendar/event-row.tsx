@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Clock3, MapPin } from 'lucide-react'
 import type { CalendarEvent } from '../../shared/feishu'
@@ -18,19 +18,10 @@ export function CalendarEventRow({
   const id = useId()
   const row = useRef<HTMLButtonElement>(null)
   const tooltip = useRef<HTMLDivElement>(null)
-  const dismissTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ left: 0, top: 0 })
-  const cancelDismiss = () => clearTimeout(dismissTimer.current)
-  const show = () => {
-    cancelDismiss()
-    setOpen(true)
-  }
-  const hideSoon = () => {
-    cancelDismiss()
-    dismissTimer.current = setTimeout(() => setOpen(false), 120)
-  }
-  useEffect(() => () => clearTimeout(dismissTimer.current), [])
+  const show = () => setOpen(true)
+  const hide = () => setOpen(false)
   useLayoutEffect(() => {
     if (!open || !row.current || !tooltip.current) return
     const anchor = row.current.getBoundingClientRect()
@@ -83,10 +74,11 @@ export function CalendarEventRow({
         type="button"
         className={`calendar-event ${tag === 'NEXT' ? 'is-next' : ''} ${past ? 'is-past' : ''}`}
         aria-describedby={open ? id : undefined}
-        onMouseEnter={show}
-        onMouseLeave={hideSoon}
+        // Scrolling a row under a stationary pointer should not reopen its tooltip.
+        onMouseMove={show}
+        onMouseLeave={hide}
         onFocus={show}
-        onBlur={hideSoon}
+        onBlur={hide}
         onClick={show}
       >
         <time>
@@ -103,8 +95,6 @@ export function CalendarEventRow({
             role="tooltip"
             className="calendar-event-details"
             style={position}
-            onMouseEnter={cancelDismiss}
-            onMouseLeave={hideSoon}
           >
             <span className="calendar-detail-kicker">日程详情</span>
             <strong>{event.title}</strong>

@@ -2,7 +2,15 @@ import { z } from 'zod'
 import { CalendarDays, RotateCw, Settings2 } from 'lucide-react'
 import { defineWidget, type WidgetContext } from '../../sdk/types'
 import { dateKey } from '../../shared/feishu'
-import { agendaDays, clockTime, eventRange, eventTag, nextEvent } from './presentation'
+import {
+  agendaDays,
+  clockTime,
+  dayLabel,
+  eventRange,
+  eventTag,
+  nextEvent,
+  nextTodayEvent,
+} from './presentation'
 import { CalendarEventRow } from './event-row'
 import { useAgenda } from './use-agenda'
 import './calendar.css'
@@ -19,6 +27,7 @@ function Calendar({
     (connection?.status === 'connecting' && !!connection.identity)
   const events = ready ? (agenda?.events ?? []) : []
   const upcoming = nextEvent(events, now.getTime())
+  const todayUpcoming = nextTodayEvent(events, now)
   const days = agendaDays(events, now)
   const today = dateKey(now)
   const status = connection?.status
@@ -35,6 +44,8 @@ function Calendar({
               ? '待刷新'
               : '可用'
   const message = error || agenda?.error?.message
+  const todayFinished =
+    ready && !todayUpcoming && !loading && !message && !agenda?.stale && !!agenda?.updatedAt
   return (
     <div ref={root} className="feishu-calendar" aria-busy={loading}>
       <header className="calendar-heading">
@@ -58,17 +69,26 @@ function Calendar({
             {now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
           </b>
         </div>
-        <div className="calendar-next">
-          <span>NEXT</span>
-          <strong title={upcoming?.title}>
-            {upcoming?.title ?? (ready ? '暂无下一场日程' : '让日程各就各位')}
+        <div className={`calendar-next ${todayFinished ? 'is-finished' : ''}`}>
+          <span>{todayUpcoming ? 'NEXT' : 'TODAY'}</span>
+          <strong title={todayUpcoming?.title}>
+            {todayUpcoming?.title ??
+              (!ready
+                ? '让日程各就各位'
+                : todayFinished
+                  ? '今天没有后续日程了'
+                  : loading
+                    ? '正在读取今天的日程…'
+                    : '暂时无法确认今天的日程')}
           </strong>
-          {upcoming && (
-            <time>
-              {dateKey(new Date(upcoming.start)) !== today &&
-                `${new Date(upcoming.start).getMonth() + 1}/${new Date(upcoming.start).getDate()} · `}
-              {eventRange(upcoming)}
-            </time>
+          {todayUpcoming && <time>{eventRange(todayUpcoming)}</time>}
+          {todayFinished && (
+            <p className="calendar-encouragement">
+              今天也辛苦啦{' '}
+              <span role="img" aria-label="送你一颗心">
+                🫶
+              </span>
+            </p>
           )}
         </div>
       </div>
@@ -130,10 +150,7 @@ function Calendar({
                   >
                     {day.key !== today && (
                       <div className="calendar-divider">
-                        <span>
-                          {day.date.getMonth() + 1}月{day.date.getDate()}日 ·{' '}
-                          {new Intl.DateTimeFormat('zh-CN', { weekday: 'long' }).format(day.date)}
-                        </span>
+                        <span>{dayLabel(day.date, now)}</span>
                       </div>
                     )}
                     {day.key === today && !day.events.length && (

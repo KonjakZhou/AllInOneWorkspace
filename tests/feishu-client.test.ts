@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { FeishuClient, normalizeEvents } from '../electron/feishu/client'
 import {
   agendaDays,
+  dayLabel,
   eventDetailRange,
   eventRange,
   eventTag,
   nextEvent,
+  nextTodayEvent,
 } from '../src/widgets/feishu-calendar/presentation'
 import { calendarRange, dateKey, localDate } from '../src/shared/feishu'
 import { config, now } from './feishu-fixtures'
@@ -99,7 +101,7 @@ describe('Feishu API and event semantics', () => {
         .rooms,
     ).toBeUndefined()
   })
-  it('shows only NEXT, TODAY and TOMORROW, including ongoing events and year boundaries', () => {
+  it('keeps tomorrow in the date heading, with only NEXT and TODAY on rows', () => {
     const today = new Date(2026, 11, 31, 12)
     const tomorrow = new Date(2027, 0, 1)
     const later = new Date(2027, 0, 2)
@@ -111,11 +113,39 @@ describe('Feishu API and event semantics', () => {
       allDay: false,
     }
     expect(eventTag(event, tomorrow, today, 'e')).toBe('NEXT')
-    expect(eventTag(event, tomorrow, today, 'other')).toBe('TOMORROW')
+    expect(eventTag(event, tomorrow, today, 'other')).toBe('')
     expect(eventTag(event, later, today, 'other')).toBe('')
     const ongoing = { ...event, start: today.getTime() - 1000, end: today.getTime() + 1000 }
     expect(eventTag(ongoing, today, today)).toBe('TODAY')
     expect(eventTag(event, later, today, 'e')).toBe('')
+    expect(dayLabel(tomorrow, today)).toBe('1月1日·星期五·明天')
+    expect(dayLabel(later, today)).toBe('1月2日·星期六')
+    expect(dayLabel(new Date(2026, 10, 25), new Date(2026, 10, 24))).toBe('11月25日·星期三·明天')
+  })
+  it('limits the overview to the next timed event starting today, including local midnight and DST', () => {
+    for (const today of [new Date(2026, 11, 31, 12), new Date(2026, 2, 8, 12)]) {
+      const at = today.getTime()
+      const tomorrow = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      ).getTime()
+      const events = normalizeEvents([
+        timed('tomorrow', tomorrow, tomorrow + 3600000),
+        timed('ongoing', at - 1000, at + 1000),
+        timed('ended', at - 2000, at - 1000),
+        timed('later', at + 7200000, at + 10800000),
+        timed('next', at + 3600000, at + 7200000),
+      ])
+      expect(nextTodayEvent(events, today)?.id).toBe('next')
+      const remaining = events.filter((event) => !['next', 'later'].includes(event.id))
+      expect(nextTodayEvent(remaining, today)).toBeUndefined()
+      expect(nextEvent(remaining, at)?.id).toBe('tomorrow')
+      expect(
+        nextTodayEvent([{ ...events[0], start: at + 1000, end: tomorrow, allDay: true }], today),
+      ).toBeUndefined()
+      expect(nextTodayEvent([], today)).toBeUndefined()
+    }
   })
   it('shows full date/time details and the final covered day for all-day events', () => {
     const event = {

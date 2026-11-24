@@ -24,6 +24,18 @@ export function nextEvent(events: CalendarEvent[], now: number) {
     .filter((event) => !event.allDay && event.start > now)
     .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id))[0]
 }
+export function nextTodayEvent(events: CalendarEvent[], now: Date) {
+  return nextEvent(
+    events.filter((event) => dateKey(new Date(event.start)) === dateKey(now)),
+    now.getTime(),
+  )
+}
+
+export function dayLabel(day: Date, now: Date) {
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const label = `${day.getMonth() + 1}月${day.getDate()}日·${new Intl.DateTimeFormat('zh-CN', { weekday: 'long' }).format(day)}`
+  return dateKey(day) === dateKey(tomorrow) ? `${label}·明天` : label
+}
 export const clockTime = (value: number) =>
   new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
     value,
@@ -40,9 +52,7 @@ export function eventRange(event: CalendarEvent) {
 export function eventTag(event: CalendarEvent, day: Date, now: Date, nextId?: string) {
   const key = dateKey(day)
   if (event.id === nextId && dateKey(new Date(event.start)) === key) return 'NEXT'
-  if (key === dateKey(now)) return 'TODAY'
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-  return key === dateKey(tomorrow) ? 'TOMORROW' : ''
+  return key === dateKey(now) ? 'TODAY' : ''
 }
 
 export function eventDetailRange(event: CalendarEvent) {
