@@ -12,6 +12,16 @@ import type { CredentialRecord, CredentialVault, Authorization } from './vault'
 import type { FeishuClientAPI } from './client'
 import type { OAuthFlow } from './oauth'
 import { FeishuError, issueFrom } from './errors'
+import type { OneClickFlow, SetupPrompt } from './one-click'
+
+type Pending = {
+  accountId: string
+  id: string
+  generation: number
+  abort?: AbortController
+  prompt?: SetupPrompt
+  verifying?: boolean
+}
 
 type Slot = {
   record?: CredentialRecord
@@ -31,7 +41,7 @@ type Slot = {
 }
 export class FeishuService {
   private slots = new Map<string, Slot>()
-  private pending?: { accountId: string; id: string; generation: number }
+  private pending?: Pending
   constructor(
     private vault: CredentialVault,
     private client: FeishuClientAPI,
@@ -39,6 +49,7 @@ export class FeishuService {
     private exists: (id: string) => Promise<boolean>,
     private changed: (id: string) => void,
     private now = Date.now,
+    private oneClick?: OneClickFlow,
   ) {}
   private slot(id: string): Slot {
     idSchema.parse(id)
@@ -101,6 +112,17 @@ export class FeishuService {
       identity: auth?.identity ?? null,
       message: slot.message ?? slot.issue?.message ?? null,
       revision: slot.generation,
+      ...(this.pending?.accountId === id && (this.pending.prompt || this.pending.verifying)
+        ? {
+            setup: this.pending.verifying
+              ? { phase: 'verifying' as const }
+              : {
+                  phase: this.pending.prompt!.phase,
+                  userCode: this.pending.prompt!.userCode,
+                  expiresAt: this.pending.prompt!.expiresAt,
+                },
+          }
+        : {}),
     }
   }
   async getConnection(id: string) {
@@ -128,8 +150,135 @@ export class FeishuService {
     this.changed(id)
     return this.connection(id, slot)
   }
+  private async commitConnection(
+    id: string,
+    slot: Slot,
+    pending: Pending,
+    config: FeishuConfig,
+    token: Authorization['token'],
+    signal: AbortSignal,
+  ) {
+    const valid = () => this.pending === pending && slot.generation === pending.generation
+    const identity = await this.client.identity(token.accessToken, signal)
+    const calendarId = await this.client.primary(token.accessToken, signal)
+    const range = calendarRange(new Date(this.now()))
+    // Verify event read permission before replacing any existing connection.
+    const events = await this.client.events(token.accessToken, calendarId, range, signal)
+    if (!valid() || signal.aborted || !(await this.exists(id)))
+      throw new Error('此授权会话已取消。')
+    await this.queue(slot, async () => {
+      if (!valid() || signal.aborted) throw new Error('此授权会话已取消。')
+      const record: CredentialRecord = {
+        schemaVersion: 1,
+        configuration: config,
+        ...(slot.record?.authMode ? { authMode: slot.record.authMode } : {}),
+        authorization: { application: config, token, identity, calendarId },
+      }
+      await this.vault.write(id, record)
+      if (!valid() || signal.aborted) {
+        if (slot.record) await this.vault.write(id, slot.record)
+        else await this.vault.remove(id)
+        return
+      }
+      this.invalidate(slot)
+      slot.record = record
+      slot.issue = undefined
+      slot.message = undefined
+      this.pending = undefined
+      slot.agenda = {
+        accountId: id,
+        revision: slot.generation,
+        connection: this.connection(id, slot),
+        events,
+        updatedAt: this.now(),
+        rangeStart: range.start,
+        rangeEnd: range.end,
+        stale: false,
+        error: null,
+      }
+    })
+    this.changed(id)
+  }
+  async connect(id: string) {
+    const slot = await this.get(id)
+    return slot.record ? this.authorize(id) : this.startOneClick(id, slot)
+  }
+  async reopenAuthorization(id: string) {
+    const pending = this.pending
+    if (pending?.accountId !== id || !pending.prompt || !this.oneClick)
+      throw new Error('没有待确认的飞书连接，请重新发起。')
+    await this.oneClick.reopen(pending.prompt.url)
+  }
+  private startOneClick(id: string, slot: Slot): FeishuConnection {
+    if (!this.oneClick) throw new Error('快捷连接服务不可用，请使用高级设置。')
+    if (this.pending) throw new Error('已有飞书连接正在进行，请先完成或取消。')
+    if (slot.cleanupFailed) throw new Error('请先重试断开连接，完成旧凭证清理。')
+    const flow = this.oneClick
+    const pending: Pending = {
+      accountId: id,
+      id: randomUUID(),
+      generation: slot.generation,
+      abort: new AbortController(),
+    }
+    this.pending = pending
+    slot.message = '正在准备飞书连接…'
+    this.changed(id)
+    const signal = pending.abort!.signal
+    const valid = () =>
+      this.pending === pending && slot.generation === pending.generation && !signal.aborted
+    const prompt = (value: SetupPrompt) => {
+      if (!valid()) return
+      pending.prompt = value
+      slot.message =
+        value.phase === 'creating_app'
+          ? '第 1 步：请在飞书页面确认创建个人应用，无需复制任何凭证。'
+          : '第 2 步：请在飞书页面授权读取日历。完成后自动返回已连接状态。'
+      this.changed(id)
+    }
+    const run = async () => {
+      let config = slot.record?.configuration
+      if (!config) {
+        config = await flow.register(prompt, signal)
+        if (!valid() || !(await this.exists(id))) return
+        const configuration = config
+        await this.queue(slot, async () => {
+          if (!valid()) return
+          const record: CredentialRecord = { schemaVersion: 1, configuration, authMode: 'device' }
+          // Retain successfully created app credentials if the following user grant is cancelled.
+          // Retrying then reuses the app instead of creating another remote application.
+          slot.record = record
+          slot.loaded = true
+          slot.needsPersist = true
+          await this.vault.write(id, record)
+          if (slot.generation === pending.generation) slot.needsPersist = false
+        })
+      }
+      if (!valid()) return
+      if (slot.needsPersist)
+        await this.queue(slot, async () => {
+          if (!valid() || !slot.record) return
+          await this.vault.write(id, slot.record)
+          if (slot.generation === pending.generation) slot.needsPersist = false
+        })
+      if (!valid()) return
+      const token = await flow.authorize(config, prompt, signal)
+      if (!valid()) return
+      pending.verifying = true
+      slot.message = '正在验证飞书身份与主日历读取权限…'
+      this.changed(id)
+      await this.commitConnection(id, slot, pending, config, token, signal)
+    }
+    void run().catch((error) => {
+      if (!valid()) return
+      this.pending = undefined
+      slot.message = issueFrom(error).message
+      this.changed(id)
+    })
+    return this.connection(id, slot)
+  }
   async authorize(id: string): Promise<FeishuConnection> {
     const slot = await this.get(id)
+    if (slot.record?.authMode === 'device') return this.startOneClick(id, slot)
     if (this.pending) throw new Error('已有飞书授权正在进行，请先完成或取消。')
     if (!slot.record) throw new Error('请先保存飞书应用配置。')
     const config = { ...slot.record.configuration }
@@ -137,49 +286,11 @@ export class FeishuService {
     this.pending = pending
     slot.message = undefined
     this.changed(id)
-    const valid = () => this.pending === pending && slot.generation === pending.generation
     try {
       await this.oauth.start(id, config.appId, {
         complete: async (code, verifier, signal) => {
           const token = await this.client.exchange(config, code, verifier, signal)
-          const identity = await this.client.identity(token.accessToken, signal)
-          const calendarId = await this.client.primary(token.accessToken, signal)
-          const range = calendarRange(new Date(this.now()))
-          // Verify event read permission before replacing any existing connection.
-          const events = await this.client.events(token.accessToken, calendarId, range, signal)
-          if (!valid() || signal.aborted || !(await this.exists(id)))
-            throw new Error('此授权会话已取消。')
-          await this.queue(slot, async () => {
-            if (!valid() || signal.aborted) throw new Error('此授权会话已取消。')
-            const record: CredentialRecord = {
-              schemaVersion: 1,
-              configuration: config,
-              authorization: { application: config, token, identity, calendarId },
-            }
-            await this.vault.write(id, record)
-            if (!valid() || signal.aborted) {
-              if (slot.record) await this.vault.write(id, slot.record)
-              else await this.vault.remove(id)
-              return
-            }
-            this.invalidate(slot)
-            slot.record = record
-            slot.issue = undefined
-            slot.message = undefined
-            this.pending = undefined
-            slot.agenda = {
-              accountId: id,
-              revision: slot.generation,
-              connection: this.connection(id, slot),
-              events,
-              updatedAt: this.now(),
-              rangeStart: range.start,
-              rangeEnd: range.end,
-              stale: false,
-              error: null,
-            }
-          })
-          this.changed(id)
+          await this.commitConnection(id, slot, pending, config, token, signal)
         },
         failed: (message) => {
           if (this.pending === pending) {
@@ -199,6 +310,7 @@ export class FeishuService {
   }
   cancelAuthorization(id: string) {
     if (this.pending?.accountId !== id) return
+    this.pending.abort?.abort()
     this.oauth.cancel(id)
     this.pending = undefined
     this.slot(id).message = '已取消授权，原有连接保持不变。'
@@ -375,6 +487,8 @@ export class FeishuService {
     }
   }
   dispose() {
+    this.pending?.abort?.abort()
+    this.pending = undefined
     this.oauth.cancel()
     for (const slot of this.slots.values()) slot.abort.abort()
   }

@@ -21,6 +21,7 @@ import { EncryptedVault } from './feishu/vault'
 import { FeishuClient } from './feishu/client'
 import { LoopbackOAuth } from './feishu/oauth'
 import { FeishuService } from './feishu/service'
+import { OneClickAuth } from './feishu/one-click'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 app.setName('All In One Workspace')
@@ -34,6 +35,11 @@ const feishu = new FeishuService(
   (id) => {
     if (window && !window.isDestroyed()) window.webContents.send('feishu:changed', id)
   },
+  Date.now,
+  new OneClickAuth(
+    (url) => shell.openExternal(url),
+    (...args) => fetch(...args),
+  ),
 )
 let window: BrowserWindow | null = null
 let closeRequested = false
@@ -135,6 +141,8 @@ else {
       store.deleteAccount(id, (accountId) => feishu.removeAccount(accountId)),
     )
     handle('feishu:connection', (id) => feishu.getConnection(id))
+    handle('feishu:connect', (id) => feishu.connect(id))
+    handle('feishu:reopen', (id) => feishu.reopenAuthorization(id))
     handle('feishu:config', (id, config) => feishu.saveConfig(id, config))
     handle('feishu:authorize', (id) => feishu.authorize(id))
     handle('feishu:cancel', (id) => feishu.cancelAuthorization(id))

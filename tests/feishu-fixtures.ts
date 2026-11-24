@@ -4,6 +4,7 @@ import type { CredentialRecord, CredentialVault } from '../electron/feishu/vault
 import type { FeishuClientAPI } from '../electron/feishu/client'
 import type { OAuthCallbacks, OAuthFlow } from '../electron/feishu/oauth'
 import { FeishuService } from '../electron/feishu/service'
+import type { OneClickFlow } from '../electron/feishu/one-click'
 
 export const now = new Date(2026, 10, 24, 12).getTime()
 export const config = { appId: 'cli_test', appSecret: 'test-secret-never-export' }
@@ -80,6 +81,13 @@ export function setupService(connected = true) {
   }
   let time = now
   const changed = vi.fn()
+  const oneClick = {
+    register: vi.fn<OneClickFlow['register']>(async () => config),
+    authorize: vi.fn<OneClickFlow['authorize']>(
+      async () => credentials('快捷').authorization!.token,
+    ),
+    reopen: vi.fn<OneClickFlow['reopen']>(async () => {}),
+  }
   const service = new FeishuService(
     vault,
     client,
@@ -87,6 +95,7 @@ export function setupService(connected = true) {
     async (id) => accounts.has(id),
     changed,
     () => time,
+    oneClick,
   )
   return {
     a,
@@ -98,6 +107,7 @@ export function setupService(connected = true) {
     oauth,
     service,
     changed,
+    oneClick,
     advance: (ms: number) => {
       time += ms
     },

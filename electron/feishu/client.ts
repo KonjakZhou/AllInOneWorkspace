@@ -16,6 +16,22 @@ const tokenResponse = z.object({
   refresh_token: z.string().min(1).optional(),
   refresh_token_expires_in: z.number().positive().optional(),
 })
+export function parseTokens(raw: unknown, now: number): Authorization['token'] {
+  const result = tokenResponse.safeParse(raw)
+  if (!result.success) throw new FeishuError('api', '飞书令牌响应无效，请重新授权。')
+  const token = result.data
+  if (!token.refresh_token || !token.refresh_token_expires_in)
+    throw new FeishuError(
+      'permission',
+      '未获得离线访问权限，请在飞书应用安全设置中开启刷新 user_access_token、发布后重新授权。',
+    )
+  return {
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    expiresAt: now + token.expires_in * 1000,
+    refreshExpiresAt: now + token.refresh_token_expires_in * 1000,
+  }
+}
 const eventTime = z.object({ date: z.string().optional(), timestamp: z.string().optional() })
 const eventSchema = z.object({
   event_id: z.string(),
@@ -156,17 +172,7 @@ export class FeishuClient implements FeishuClientAPI {
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
       signal,
     )
-    const result = tokenResponse.safeParse(raw)
-    if (!result.success) throw new FeishuError('api', '飞书令牌响应无效，请重新授权。')
-    const token = result.data
-    if (!token.refresh_token || !token.refresh_token_expires_in)
-      throw new FeishuError('permission', '未获得离线访问权限，请开启 offline_access 并重新授权。')
-    return {
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token,
-      expiresAt: this.now() + token.expires_in * 1000,
-      refreshExpiresAt: this.now() + token.refresh_token_expires_in * 1000,
-    }
+    return parseTokens(raw, this.now())
   }
   exchange(config: FeishuConfig, code: string, verifier: string, signal: AbortSignal) {
     return this.tokens(

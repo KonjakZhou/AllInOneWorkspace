@@ -21,6 +21,7 @@ const authorizationSchema = z.object({
 export const credentialSchema = z.object({
   schemaVersion: z.literal(1),
   configuration: feishuConfigSchema,
+  authMode: z.literal('device').optional(),
   authorization: authorizationSchema.optional(),
 })
 export type CredentialRecord = z.infer<typeof credentialSchema>

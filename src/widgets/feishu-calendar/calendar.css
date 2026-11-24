@@ -240,6 +240,23 @@
   align-items: center;
   font-size: 13px;
 }
+.feishu-quick-connect,
+.feishu-setup-progress {
+  background: #f2f5eb;
+  padding: 15px;
+  border-radius: 12px;
+  margin: 14px 0;
+  font-size: 12px;
+}
+.feishu-quick-connect > .quiet-button {
+  display: block;
+  margin-top: 13px;
+}
+.feishu-setup-progress code {
+  color: #466a53;
+  letter-spacing: 2px;
+  font-weight: 650;
+}
 .feishu-settings .button-row {
   flex-wrap: wrap;
 }

@@ -8,6 +8,8 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 }
 const api: DesktopAPI = {
   feishu: {
+    connect: (id) => invoke('feishu:connect', id),
+    reopenAuthorization: (id) => invoke('feishu:reopen', id),
     getConnection: (id) => invoke('feishu:connection', id),
     saveConfig: (id, config) => invoke('feishu:config', id, config),
     authorize: (id) => invoke('feishu:authorize', id),

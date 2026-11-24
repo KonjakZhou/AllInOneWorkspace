@@ -85,6 +85,8 @@ test('desktop lifecycle: edit, drag, resize, isolate accounts, close and restore
     .toBeGreaterThan(0)
   const resize = text.locator('..').locator('.react-resizable-handle')
   await resize.scrollIntoViewIfNeeded()
+  // Wait for scrolling and the grid's transform transition before taking pointer coordinates.
+  await resize.hover()
   const resizeBox = (await resize.boundingBox())!
   await page.mouse.move(resizeBox.x + 12, resizeBox.y + 12)
   await page.mouse.down()

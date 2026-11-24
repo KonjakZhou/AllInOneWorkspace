@@ -3,7 +3,7 @@ import { FEISHU_REDIRECT_URI, FEISHU_SCOPES, type FeishuConnection } from '../sh
 import { errorMessage } from '../shared/model'
 
 export const connectionLabels: Record<FeishuConnection['status'], string> = {
-  unconfigured: '未配置',
+  unconfigured: '未连接',
   not_connected: '未连接',
   connecting: '等待授权',
   connected: '已连接',
@@ -74,7 +74,33 @@ export function FeishuConnectionSettings({
       <p>
         此账号下的所有日历组件共用连接。仅读取个人主日历；凭证只保存在本机，导入账号后需要重新授权。
       </p>
-      {(configuring || (connection && !connection.configured)) && (
+      {connection && !connection.configured && !connecting && (
+        <div className="feishu-quick-connect">
+          <strong>两步确认，自动连接</strong>
+          <p>
+            首次将在飞书页面确认创建个人应用，再授权读取日历。无需手填 App ID、Secret
+            或配置回调地址；企业策略可能要求管理员审批。
+          </p>
+          <button
+            className="button primary"
+            disabled={busy || connecting || configuring}
+            onClick={() => void perform(() => api.connect(accountId))}
+          >
+            一键连接飞书
+          </button>
+          <button
+            className="quiet-button"
+            disabled={busy || connecting}
+            onClick={() => {
+              setConfiguring(!configuring)
+              setSecret('')
+            }}
+          >
+            高级设置：连接已有应用
+          </button>
+        </div>
+      )}
+      {configuring && (
         <form
           className="form-stack"
           onSubmit={(event) => {
@@ -177,9 +203,45 @@ export function FeishuConnectionSettings({
         )}
       </div>
       {connecting && (
-        <p role="status">
-          请在系统浏览器中完成授权。有效期五分钟；切换工作区不会改变此次授权的目标账号。
-        </p>
+        <div className="feishu-setup-progress" role="status">
+          {connection?.setup ? (
+            <>
+              <strong>
+                {connection.setup.phase === 'creating_app'
+                  ? '① 确认创建应用'
+                  : connection.setup.phase === 'authorizing'
+                    ? '② 授权读取日历'
+                    : '正在验证连接'}
+              </strong>
+              {connection.setup.userCode && (
+                <p>
+                  确认码：<code>{connection.setup.userCode}</code>
+                </p>
+              )}
+              {connection.setup.expiresAt && (
+                <p>
+                  请在{' '}
+                  {new Date(connection.setup.expiresAt).toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}{' '}
+                  前完成。切换工作区不会改变此次绑定的目标账号。
+                </p>
+              )}
+              {connection.setup.phase !== 'verifying' && (
+                <button
+                  className="button"
+                  disabled={busy}
+                  onClick={() => void perform(() => api.reopenAuthorization(accountId))}
+                >
+                  重新打开飞书确认页
+                </button>
+              )}
+            </>
+          ) : (
+            <p>请在系统浏览器中完成授权。切换工作区不会改变此次授权的目标账号。</p>
+          )}
+        </div>
       )}
       {connection?.message && <p role="status">{connection.message}</p>}
       {error && (
@@ -189,7 +251,10 @@ export function FeishuConnectionSettings({
       )}
       {confirmDisconnect && (
         <div className="feishu-confirm">
-          <p>断开后将清除“{accountName}”的飞书应用配置、凭证和日程缓存，需要重新配置授权。</p>
+          <p>
+            断开后将清除“{accountName}
+            ”的本机飞书凭证和日程缓存。不会删除飞书中已创建的应用；重新连接可在高级设置中复用原应用。
+          </p>
           <div className="button-row">
             <button
               className="button danger"
@@ -215,7 +280,7 @@ export function FeishuConnectionSettings({
         </div>
       )}
       <details className="feishu-guide">
-        <summary>如何配置飞书自建应用</summary>
+        <summary>高级设置：手动配置说明</summary>
         <ol>
           <li>在飞书开放平台创建企业自建应用，复制 App ID 和 App Secret。</li>
           <li>

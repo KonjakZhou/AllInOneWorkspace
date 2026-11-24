@@ -21,7 +21,15 @@ async function add() {
 }
 async function injectMocks() {
   await app.evaluate(({ safeStorage, shell }) => {
-    const state = { url: '', eventCalls: 0, failure: 0 }
+    const state = {
+      url: '',
+      eventCalls: 0,
+      failure: 0,
+      registrationBegins: 0,
+      registrationConfirmed: false,
+      grantConfirmed: false,
+      browserOpens: 0,
+    }
     Object.assign(globalThis, { __feishuTest: state })
     // Test-only boundary replacements in the real Electron process. Production has no bypass.
     safeStorage.isAsyncEncryptionAvailable = async () => true
@@ -35,10 +43,48 @@ async function injectMocks() {
     })
     shell.openExternal = async (url) => {
       state.url = url
+      state.browserOpens++
     }
-    globalThis.fetch = async (input) => {
+    globalThis.fetch = async (input, init) => {
       const url = String(input)
       const reply = (data: unknown) => new Response(JSON.stringify({ code: 0, data }))
+      const raw = (data: unknown) => new Response(JSON.stringify(data))
+      if (url.endsWith('/oauth/v1/app/registration')) {
+        const body = new URLSearchParams(String(init?.body))
+        if (body.get('action') === 'begin') {
+          state.registrationBegins++
+          return raw({
+            device_code: 'registration-code',
+            user_code: 'CREATE',
+            expires_in: 60,
+            interval: 1,
+          })
+        }
+        return raw(
+          state.registrationConfirmed
+            ? {
+                client_id: 'cli_created',
+                client_secret: 'created-secret-never-export',
+                user_info: { tenant_brand: 'feishu' },
+              }
+            : { error: 'authorization_pending' },
+        )
+      }
+      if (url.endsWith('/oauth/v1/device_authorization'))
+        return raw({
+          device_code: 'device-code',
+          user_code: 'GRANT',
+          expires_in: 60,
+          interval: 1,
+          verification_uri_complete: 'https://accounts.feishu.cn/confirm?code=GRANT',
+        })
+      if (
+        url.endsWith('/oauth/v3/token') &&
+        new URLSearchParams(String(init?.body)).get('grant_type') ===
+          'urn:ietf:params:oauth:grant-type:device_code' &&
+        !state.grantConfirmed
+      )
+        return raw({ error: 'authorization_pending' })
       if (url === 'https://accounts.feishu.cn/oauth/v3/token')
         return new Response(
           JSON.stringify({
@@ -103,10 +149,18 @@ async function injectMocks() {
 }
 async function authorize() {
   await page.getByRole('button', { name: '应用设置' }).click()
+  await page.getByRole('button', { name: '高级设置：连接已有应用' }).click()
   await page.getByLabel('飞书 App ID', { exact: true }).fill('cli_test')
   await page.getByLabel('飞书 App Secret', { exact: true }).fill('test-secret-never-export')
   await page.getByRole('button', { name: '保存应用配置' }).click()
   await page.getByRole('button', { name: '授权连接飞书' }).click()
+  await expect
+    .poll(() =>
+      app.evaluate(
+        () => (globalThis as unknown as { __feishuTest: { url: string } }).__feishuTest.url,
+      ),
+    )
+    .toContain('/open-apis/authen/v1/authorize?')
   const url = await app.evaluate(
     () => (globalThis as unknown as { __feishuTest: { url: string } }).__feishuTest.url,
   )
@@ -135,6 +189,56 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await app?.close().catch(() => {})
   await rm(directory, { recursive: true, force: true })
+})
+
+test('one-click creates an app, resumes cancelled consent without creating another, and reads the calendar', async () => {
+  await add()
+  await page.getByRole('button', { name: '应用设置' }).click()
+  await expect(page.getByLabel('飞书 App ID', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('飞书 App Secret', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '一键连接飞书', exact: true }).click()
+  await expect(page.getByText('① 确认创建应用', { exact: true })).toBeVisible()
+  await page.screenshot({ path: 'test-results/feishu-one-click-setup.png' })
+  await page.getByRole('button', { name: '重新打开飞书确认页' }).click()
+  expect(
+    await app.evaluate(
+      () =>
+        (globalThis as unknown as { __feishuTest: { browserOpens: number } }).__feishuTest
+          .browserOpens,
+    ),
+  ).toBe(2)
+  await app.evaluate(() => {
+    ;(
+      globalThis as unknown as { __feishuTest: { registrationConfirmed: boolean } }
+    ).__feishuTest.registrationConfirmed = true
+  })
+  await expect(page.getByText('② 授权读取日历', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '取消授权', exact: true }).click()
+  await expect(page.getByRole('button', { name: '授权连接飞书', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: '授权连接飞书', exact: true }).click()
+  await expect(page.getByText('② 授权读取日历', { exact: true })).toBeVisible()
+  await app.evaluate(() => {
+    ;(
+      globalThis as unknown as { __feishuTest: { grantConfirmed: boolean } }
+    ).__feishuTest.grantConfirmed = true
+  })
+  await expect(page.getByRole('dialog')).toContainText('日历测试用户')
+  expect(
+    await app.evaluate(
+      () =>
+        (globalThis as unknown as { __feishuTest: { registrationBegins: number } }).__feishuTest
+          .registrationBegins,
+    ),
+  ).toBe(1)
+  const index = JSON.parse(await readFile(join(directory, 'accounts.json'), 'utf8'))
+  const vault = await readFile(
+    join(directory, 'connections/feishu', index.activeAccountId + '.json'),
+    'utf8',
+  )
+  expect(vault).not.toMatch(/created-secret|fake-access|fake-refresh/)
+  await page.getByRole('button', { name: '关闭对话框' }).click()
+  await expect(page.locator('.calendar-event.is-next')).toContainText('设计评审')
+  expect(errors).toEqual([])
 })
 
 test('calendar OAuth follows its original account, shares connections, exports no secrets and disconnects all instances', async () => {
@@ -220,6 +324,7 @@ test('calendar fits the minimum window and card, retains editing controls and sh
   await expect(card.getByRole('button', { name: '移除组件' })).toBeVisible()
   const handle = card.locator('..').locator('.react-resizable-handle')
   await handle.scrollIntoViewIfNeeded()
+  await handle.hover()
   const box = (await handle.boundingBox())!
   await page.mouse.move(box.x + 12, box.y + 12)
   await page.mouse.down()

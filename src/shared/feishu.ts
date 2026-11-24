@@ -33,6 +33,11 @@ export type FeishuConnection = {
   identity: FeishuIdentity | null
   message: string | null
   revision: number
+  setup?: {
+    phase: 'creating_app' | 'authorizing' | 'verifying'
+    userCode?: string
+    expiresAt?: number
+  }
 }
 export type CalendarEvent = {
   id: string
@@ -55,6 +60,8 @@ export type CalendarAgenda = {
   error: FeishuIssue | null
 }
 export interface FeishuAPI {
+  connect(accountId: string): Promise<FeishuConnection>
+  reopenAuthorization(accountId: string): Promise<void>
   getConnection(accountId: string): Promise<FeishuConnection>
   saveConfig(accountId: string, config: FeishuConfig): Promise<FeishuConnection>
   authorize(accountId: string): Promise<FeishuConnection>
