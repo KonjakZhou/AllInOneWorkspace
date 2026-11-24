@@ -76,7 +76,7 @@ function Calendar({
               (!ready
                 ? '让日程各就各位'
                 : todayFinished
-                  ? '今天没有后续日程了'
+                  ? '没有后续日程了'
                   : loading
                     ? '正在读取今天的日程…'
                     : '暂时无法确认今天的日程')}

@@ -2,6 +2,16 @@
 
 ## 本次验证记录
 
+2026-11-24，0.3.4，macOS Apple Silicon（arm64）：
+
+- 只调整顶部提示为「没有后续日程了」，补充时区说明；未修改时区计算及刷新逻辑。
+- TypeScript、Prettier 检查及 arm64 `.app` / `.dmg` 构建通过；仍未签名、未公证。
+- 日期/API 和刷新生命周期测试分别以 `TZ=Asia/Shanghai`、`TZ=America/Los_Angeles` 运行，各 18 项通过。时区换算示例由 `Intl.DateTimeFormat` 核对。
+- 0.3.4 打包应用中「今日无后续日程提示」桌面测试通过，包含文字、表情及网络失败时不误报空日程的检查。此次未重复运行完整桌面套件，上一版完整记录见下文。
+- 未更改真实 macOS 系统时区；未验证应用运行中切换系统时区的端到端行为。
+
+## 0.3.3 完整回归记录
+
 2026-11-24，0.3.3，macOS Apple Silicon（arm64）：
 
 - TypeScript 检查及未使用符号检查通过，Prettier 格式检查通过。

@@ -412,7 +412,7 @@ test('overview celebrates no remaining events today while keeping tomorrow in it
     ).__feishuTest.todayFinished = true
   })
   await card.getByRole('button', { name: '刷新飞书日历' }).click()
-  await expect(card.locator('.calendar-next')).toContainText('今天没有后续日程了')
+  await expect(card.locator('.calendar-next')).toContainText('没有后续日程了')
   await expect(card.locator('.calendar-next')).toContainText('今天也辛苦啦')
   await expect(card.getByRole('img', { name: '送你一颗心' })).toBeVisible()
   await expect(card.locator('.calendar-next time')).toHaveCount(0)
