@@ -1,0 +1,707 @@
+import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
+import GridLayout, { useContainerWidth, noCompactor, type Layout } from 'react-grid-layout'
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  Columns3,
+  FolderHeart,
+  Grid2X2,
+  LayoutGrid,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Settings2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react'
+import { widgetRegistry } from './widgets'
+import { WorkspaceController } from './workspace/controller'
+import { Modal } from './components/Modal'
+import { WidgetCard, WidgetIcon } from './components/WidgetCard'
+import type { Account } from './shared/model'
+import { errorMessage } from './shared/model'
+
+const api = window.workspace
+const controller = api ? new WorkspaceController(api, widgetRegistry) : null
+type Dialog =
+  | null
+  | 'library'
+  | 'accounts'
+  | 'settings'
+  | { kind: 'remove-widget'; id: string }
+  | { kind: 'delete-account'; account: Account }
+
+export default function App() {
+  if (!controller)
+    return (
+      <div className="fatal-screen">
+        <LayoutGrid size={32} />
+        <h1>请在桌面应用中打开</h1>
+        <p>这个工作区需要本地桌面服务。请使用 pnpm dev 启动应用。</p>
+      </div>
+    )
+  return <WorkspaceApp controller={controller} />
+}
+
+function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
+  const state = useSyncExternalStore(controller.subscribe, controller.getState)
+  const [dialog, setDialog] = useState<Dialog>(null)
+  const [editing, setEditing] = useState(false)
+  useEffect(() => {
+    void controller.load()
+    return api.onCloseRequested(async () => {
+      try {
+        await controller.flush()
+        await api.finishClose()
+      } catch {
+        /* The save error remains visible; closing is cancelled. */
+      }
+    })
+  }, [controller])
+  const snapshot = state.snapshot
+  const perform = async (action: () => Promise<unknown>, close = false) => {
+    try {
+      await action()
+      if (close) setDialog(null)
+    } catch {
+      /* Controller publishes actionable errors. */
+    }
+  }
+  const local = (action: () => void) => {
+    try {
+      action()
+    } catch (error) {
+      controller.showError(error)
+    }
+  }
+  if (!snapshot)
+    return (
+      <div className="fatal-screen">
+        <div className="brand-mark large">
+          <LayoutGrid size={30} />
+        </div>
+        <h1>{state.error ? '暂时无法打开工作区' : '正在准备你的工作区'}</h1>
+        <p>{state.error ?? '所有美好的开始，都需要一点空间。'}</p>
+        {state.error ? (
+          <button className="button primary" onClick={() => void controller.load()}>
+            重新读取
+          </button>
+        ) : (
+          <LoaderCircle className="spin" size={20} />
+        )}
+      </div>
+    )
+  const account = snapshot.index.accounts.find(
+    (account) => account.id === snapshot.index.activeAccountId,
+  )!
+  const widgets = snapshot.workspace.widgets
+  const today = new Intl.DateTimeFormat('zh-CN', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  }).format(new Date())
+  const saveLabels = {
+    saved: '所有更改已保存',
+    dirty: '有待保存的更改',
+    saving: '正在保存…',
+    error: '保存失败 · 点击重试',
+  }
+  const layout = widgets.map((widget) => ({
+    i: widget.id,
+    ...widget.layout,
+    minW: widgetRegistry.get(widget.type)?.minSize.w ?? 1,
+    minH: widgetRegistry.get(widget.type)?.minSize.h ?? 2,
+  }))
+  const commitLayout = (next: Layout) => local(() => controller.setLayout([...next]))
+  return (
+    <div className="app-shell">
+      <div className="titlebar">
+        <span>
+          ALL IN ONE <span className="titlebar-divider">/</span> YOUR PERSONAL SPACE
+        </span>
+        <span className="local-indicator">
+          <i />
+          LOCAL FIRST
+        </span>
+      </div>
+      <header className="toolbar">
+        <div className="brand">
+          <div className="brand-mark">
+            <LayoutGrid size={23} strokeWidth={1.8} />
+          </div>
+          <div>
+            <h1>
+              我的工作区<span className="brand-dot">.</span>
+            </h1>
+            <p>给想法和日常，一个刚刚好的位置。</p>
+          </div>
+        </div>
+        <div className="toolbar-actions">
+          <button
+            className={`button ${editing ? 'editing-button' : ''}`}
+            onClick={() => setEditing(!editing)}
+            disabled={state.busy}
+            aria-pressed={editing}
+          >
+            {editing ? <Check size={16} /> : <SlidersHorizontal size={16} />}
+            {editing ? '完成编辑' : '编辑布局'}
+          </button>
+          <button
+            className="button primary"
+            onClick={() => setDialog('library')}
+            disabled={state.busy}
+          >
+            <Plus size={17} />
+            添加组件
+          </button>
+          <span className="toolbar-separator" />
+          <button
+            className="icon-button settings-button"
+            aria-label="应用设置"
+            onClick={() => setDialog('settings')}
+            disabled={state.busy}
+          >
+            <Settings2 size={20} />
+          </button>
+          <button
+            className="account-button"
+            onClick={() => setDialog('accounts')}
+            disabled={state.busy}
+            aria-label="管理账号"
+          >
+            <span className="avatar">{account.name.slice(0, 1)}</span>
+            <span className="account-name">{account.name}</span>
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      </header>
+      <main className="workspace-main" aria-busy={state.busy}>
+        <section className="workspace-heading">
+          <div>
+            <span className="eyebrow">YOUR WORKSPACE</span>
+            <h2>
+              {account.name === '默认账号' ? '从这里，开始今天' : `${account.name}的工作区`}
+              <span className="heading-dot" />
+            </h2>
+            <p>
+              {widgets.length
+                ? `${widgets.length} 个组件，各就各位。按自己的节奏，做重要的事。`
+                : '一张空白画布，无限种属于你的可能。'}
+            </p>
+          </div>
+          <div className="workspace-meta">
+            <span>{today}</span>
+            <button
+              className={`save-state ${state.status === 'error' ? 'save-error' : ''}`}
+              onClick={() => void perform(controller.flush)}
+              aria-label={saveLabels[state.status]}
+              disabled={state.status !== 'error'}
+            >
+              {state.status === 'saving' ? <LoaderCircle size={12} className="spin" /> : <i />}
+              {saveLabels[state.status]}
+            </button>
+          </div>
+        </section>
+        {(state.error || state.notice) && (
+          <div
+            className={`notice ${state.error ? 'notice-error' : ''}`}
+            role={state.error ? 'alert' : 'status'}
+          >
+            <span>{state.error ?? state.notice}</span>
+            {state.status === 'error' && (
+              <button className="quiet-button" onClick={() => void perform(controller.flush)}>
+                重试保存
+              </button>
+            )}
+            {!state.error && (
+              <button
+                className="icon-button compact"
+                aria-label="关闭提示"
+                onClick={controller.dismissNotice}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        )}
+        {editing && (
+          <div className="edit-banner">
+            <span>
+              <Grid2X2 size={16} />
+              正在编辑布局{' '}
+              <small>拖动卡片左上角调整位置，拖动右下角调整大小。更改会自动保存。</small>
+            </span>
+            <button
+              className="quiet-button"
+              onClick={() => local(() => controller.rearrange())}
+              disabled={state.busy || !widgets.length}
+            >
+              重新整理布局
+            </button>
+          </div>
+        )}
+        <Canvas
+          className={`canvas ${editing ? 'canvas-editing' : ''} ${state.busy ? 'canvas-busy' : ''}`}
+        >
+          {({ width, mounted }) =>
+            !widgets.length ? (
+              <section className="empty-workspace">
+                <div className="canvas-illustration" aria-hidden="true">
+                  <div className="mini-card mini-note">
+                    <span />
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                  <div className="mini-card mini-count">
+                    <span />
+                    <b>01</b>
+                    <i />
+                  </div>
+                  <div className="mini-plus">
+                    <Plus size={19} />
+                  </div>
+                  <span className="illustration-spark one">✦</span>
+                  <span className="illustration-spark two">✧</span>
+                </div>
+                <span className="eyebrow">MAKE ROOM FOR WHAT MATTERS</span>
+                <h3>你的空间，由你来定义</h3>
+                <p>
+                  把需要的小工具放在一起，
+                  <br />
+                  让工作和生活，慢慢长成喜欢的样子。
+                </p>
+                <button
+                  className="button primary"
+                  onClick={() => setDialog('library')}
+                  disabled={state.busy}
+                >
+                  <Plus size={17} />
+                  添加第一个组件
+                </button>
+                <div className="empty-capabilities">
+                  <span>
+                    <Columns3 size={14} />
+                    自由编排
+                  </span>
+                  <span>
+                    <ShieldCheck size={14} />
+                    本地保存
+                  </span>
+                  <span>
+                    <Users size={14} />
+                    独立账号
+                  </span>
+                </div>
+              </section>
+            ) : (
+              mounted && (
+                <GridLayout
+                  key={account.id}
+                  width={width}
+                  layout={layout}
+                  gridConfig={{
+                    cols: 12,
+                    rowHeight: 32,
+                    margin: [16, 16],
+                    containerPadding: [0, 0],
+                  }}
+                  dragConfig={{ enabled: editing && !state.busy, handle: '.drag-handle' }}
+                  resizeConfig={{ enabled: editing && !state.busy, handles: ['se'] }}
+                  compactor={noCompactor}
+                  onDragStop={commitLayout}
+                  onResizeStop={commitLayout}
+                >
+                  {widgets.map((widget) => (
+                    <div key={widget.id}>
+                      <WidgetCard
+                        key={`${account.id}:${widget.id}`}
+                        widget={widget}
+                        accountId={account.id}
+                        definition={widgetRegistry.get(widget.type)}
+                        controller={controller}
+                        editing={editing}
+                        busy={state.busy}
+                        onRemove={() => setDialog({ kind: 'remove-widget', id: widget.id })}
+                      />
+                    </div>
+                  ))}
+                </GridLayout>
+              )
+            )
+          }
+        </Canvas>
+        {!widgets.length && (
+          <section className="starter-strip">
+            <div className="starter-heading">
+              <span className="small-icon">
+                <Sparkles size={19} />
+              </span>
+              <div>
+                <strong>从一个小组件开始</strong>
+                <p>选一个起点，让空间随你一起成长。</p>
+              </div>
+            </div>
+            {[...widgetRegistry.values()].slice(0, 2).map((definition) => (
+              <button
+                key={definition.type}
+                className="starter-option"
+                onClick={() => local(() => controller.addWidget(definition.type))}
+                disabled={state.busy}
+              >
+                <span className={`sample-icon ${definition.accent}`}>
+                  <WidgetIcon icon={definition.icon} />
+                </span>
+                <span>
+                  <strong>{definition.name}</strong>
+                  <small title={definition.description}>{definition.description}</small>
+                </span>
+                <Plus size={16} />
+              </button>
+            ))}
+            <button className="starter-more" onClick={() => setDialog('library')}>
+              查看组件库
+              <ArrowUpRight size={16} />
+            </button>
+          </section>
+        )}
+        {widgets.length > 0 && (
+          <button
+            className="add-another"
+            onClick={() => setDialog('library')}
+            disabled={state.busy}
+          >
+            <Plus size={16} />
+            为工作区再添一点可能
+          </button>
+        )}
+      </main>
+      <footer className="app-footer">
+        <span>
+          <span className="footer-logo">◈</span> ALL IN ONE WORKSPACE{' '}
+          <span className="version-tag">v0.1.0</span>
+        </span>
+        <span>
+          <ShieldCheck size={12} />
+          只在你的设备上，属于你的空间。
+        </span>
+      </footer>
+      {dialog === 'library' && (
+        <Modal
+          title="为你的空间，添一块拼图"
+          subtitle="选择需要的组件。每种组件都可以添加多次，独立设置。"
+          onClose={() => setDialog(null)}
+          wide
+        >
+          <div className="library-heading">
+            <span>
+              全部组件 <b>{widgetRegistry.size}</b>
+            </span>
+            <span className="badge">本地组件库</span>
+          </div>
+          <div className="library-grid">
+            {[...widgetRegistry.values()].map((definition) => (
+              <div className={`library-card accent-${definition.accent}`} key={definition.type}>
+                <span className={`sample-icon ${definition.accent}`}>
+                  <WidgetIcon icon={definition.icon} size={24} />
+                </span>
+                <h3>{definition.name}</h3>
+                <p>{definition.description}</p>
+                <div>
+                  <span className="field-hint">{definition.defaultSize.w} 列 · 可调整</span>
+                  <button
+                    className="button small"
+                    onClick={() => {
+                      local(() => controller.addWidget(definition.type))
+                      setDialog(null)
+                    }}
+                  >
+                    <Plus size={14} />
+                    添加
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="library-note">
+            <BlocksIcon />
+            <div>
+              <strong>让工作区随你一起成长</strong>
+              <p>更多组件可以按你的需要，逐个加入。现有布局会一直保留。</p>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {dialog === 'accounts' && (
+        <Modal
+          title="你的不同日常，各有空间"
+          subtitle="每个账号独立保存布局、组件设置和内容。"
+          onClose={() => setDialog(null)}
+          locked={state.busy}
+        >
+          <AccountManager
+            accounts={snapshot.index.accounts}
+            activeId={account.id}
+            busy={state.busy}
+            error={state.error}
+            controller={controller}
+            onDelete={(account) => setDialog({ kind: 'delete-account', account })}
+          />
+        </Modal>
+      )}
+      {dialog === 'settings' && (
+        <Modal
+          title="工作区设置"
+          subtitle="把这个空间带去下一台设备。"
+          onClose={() => setDialog(null)}
+          locked={state.busy}
+        >
+          <div className="settings-section">
+            <span className="eyebrow">DATA & PORTABILITY</span>
+            <h3>账号迁移</h3>
+            <p>导出当前账号的布局、组件配置和内容。导入会创建一个新账号，不会覆盖已有数据。</p>
+            <div className="button-row">
+              <button
+                className="button"
+                disabled={state.busy}
+                onClick={() => void perform(() => controller.exportAccount())}
+              >
+                <ArrowUpFromLine size={16} />
+                导出当前账号
+              </button>
+              <button
+                className="button"
+                disabled={state.busy}
+                onClick={() => void perform(() => controller.importAccount(), true)}
+              >
+                <ArrowDownToLine size={16} />
+                导入账号
+              </button>
+            </div>
+          </div>
+          <div className="settings-section">
+            <span className="eyebrow">ON THIS DEVICE</span>
+            <h3>本地数据目录</h3>
+            <code className="path-display">{snapshot.dataDirectory}</code>
+            <p>数据独立于源码仓库。每次保存都会保留上一份有效备份。</p>
+          </div>
+          {state.error && (
+            <p className="inline-error" role="alert">
+              {state.error}
+            </p>
+          )}
+          {state.notice && <p className="field-hint">{state.notice}</p>}
+          <div className="settings-about">
+            <div className="brand-mark small">
+              <LayoutGrid size={18} />
+            </div>
+            <div>
+              <strong>All In One Workspace</strong>
+              <p>版本 0.1.0 · 为你的日常，留一块空间。</p>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {dialog && typeof dialog === 'object' && (
+        <Modal
+          title={
+            dialog.kind === 'remove-widget' ? '移除这个组件？' : `删除“${dialog.account.name}”？`
+          }
+          subtitle={
+            dialog.kind === 'remove-widget'
+              ? '这个实例的配置和内容会一起删除，其他组件不受影响。'
+              : '此账号的布局、组件配置和内容会一起删除。你可以先导出备份。'
+          }
+          onClose={() => setDialog(null)}
+          locked={state.busy}
+        >
+          {state.error && <p className="inline-error">{state.error}</p>}
+          <div className="button-row align-end">
+            <button className="button" disabled={state.busy} onClick={() => setDialog(null)}>
+              取消
+            </button>
+            <button
+              className="button danger"
+              disabled={state.busy}
+              onClick={() => {
+                if (dialog.kind === 'remove-widget') {
+                  local(() => controller.removeWidget(dialog.id))
+                  setDialog(null)
+                } else void perform(() => controller.deleteAccount(dialog.account.id), true)
+              }}
+            >
+              确认{dialog.kind === 'remove-widget' ? '移除' : '删除'}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function Canvas({
+  className,
+  children,
+}: {
+  className: string
+  children: (size: { width: number; mounted: boolean }) => ReactNode
+}) {
+  // Observe only after the actual canvas has mounted, not during account loading.
+  const { width, containerRef, mounted } = useContainerWidth({ measureBeforeMount: true })
+  return (
+    <div ref={containerRef} className={className}>
+      {children({ width, mounted })}
+    </div>
+  )
+}
+
+function BlocksIcon() {
+  return <FolderHeart size={24} />
+}
+function AccountManager({
+  accounts,
+  activeId,
+  busy,
+  error,
+  controller,
+  onDelete,
+}: {
+  accounts: Account[]
+  activeId: string
+  busy: boolean
+  error: string | null
+  controller: WorkspaceController
+  onDelete: (account: Account) => void
+}) {
+  const [name, setName] = useState('')
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [rename, setRename] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const act = async (fn: () => Promise<void>) => {
+    setFormError(null)
+    try {
+      await fn()
+    } catch (error) {
+      setFormError(errorMessage(error))
+    }
+  }
+  const create = (event: FormEvent) => {
+    event.preventDefault()
+    void act(async () => {
+      await controller.createAccount(name)
+      setName('')
+    })
+  }
+  return (
+    <>
+      <div className="account-list">
+        {accounts.map((account) => (
+          <div
+            className={`account-row ${account.id === activeId ? 'selected' : ''}`}
+            key={account.id}
+          >
+            <button
+              className="account-select"
+              disabled={busy || account.id === activeId}
+              onClick={() => void act(() => controller.switchAccount(account.id))}
+            >
+              <span className="avatar">{account.name.slice(0, 1)}</span>
+              <span>
+                <strong>{account.name}</strong>
+                <small>{account.id === activeId ? '当前工作区' : '点击切换工作区'}</small>
+              </span>
+              {account.id === activeId && <Check size={16} />}
+            </button>
+            <button
+              className="icon-button"
+              aria-label={`重命名${account.name}`}
+              disabled={busy}
+              onClick={() => {
+                setRenaming(account.id)
+                setRename(account.name)
+              }}
+            >
+              <Pencil size={15} />
+            </button>
+            <button
+              className="icon-button danger-hover"
+              aria-label={`删除${account.name}`}
+              disabled={busy || accounts.length === 1}
+              onClick={() => onDelete(account)}
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+      {renaming && (
+        <form
+          className="inline-form rename-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void act(async () => {
+              await controller.renameAccount(renaming, rename)
+              setRenaming(null)
+            })
+          }}
+        >
+          <input
+            aria-label="新的账号名称"
+            value={rename}
+            onChange={(event) => setRename(event.target.value)}
+            maxLength={40}
+            required
+            disabled={busy}
+            autoFocus
+          />
+          <button className="button" disabled={busy || !rename.trim()}>
+            保存名称
+          </button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="取消重命名"
+            onClick={() => setRenaming(null)}
+          >
+            <X size={16} />
+          </button>
+        </form>
+      )}
+      <form onSubmit={create} className="new-account-form">
+        <label htmlFor="account-name">创建一个新的空间</label>
+        <div className="inline-form">
+          <input
+            id="account-name"
+            placeholder="例如：工作、生活、灵感"
+            maxLength={40}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+            disabled={busy}
+          />
+          <button className="button primary" disabled={busy || !name.trim()}>
+            <Plus size={16} />
+            创建账号
+          </button>
+        </div>
+      </form>
+      {(formError || error) && (
+        <p className="inline-error" role="alert">
+          {formError || error}
+        </p>
+      )}
+      <p className="account-hint">
+        <CircleHelp size={14} />
+        账号只用于区分本地空间，无需密码或登录。
+      </p>
+    </>
+  )
+}
