@@ -50,6 +50,8 @@ export type CalendarEvent = {
   allDay: boolean
   startDate?: string
   endDate?: string
+  rooms?: string[]
+  location?: string
 }
 export type CalendarAgenda = {
   accountId: string

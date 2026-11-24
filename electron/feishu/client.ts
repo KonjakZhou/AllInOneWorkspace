@@ -41,6 +41,17 @@ const eventSchema = z.object({
   status: z.string().optional(),
   self_rsvp_status: z.string().optional(),
   is_exception: z.boolean().optional(),
+  attendees: z
+    .array(
+      z.object({
+        type: z.string().nullish(),
+        room_id: z.string().nullish(),
+        display_name: z.string().nullish(),
+        rsvp_status: z.string().nullish(),
+      }),
+    )
+    .nullish(),
+  location: z.object({ name: z.string().nullish(), address: z.string().nullish() }).nullish(),
 })
 export type RawEvent = z.infer<typeof eventSchema>
 export function normalizeEvents(input: unknown[]): CalendarEvent[] {
@@ -66,6 +77,28 @@ export function normalizeEvents(input: unknown[]): CalendarEvent[] {
     const end = allDay ? localDate(event.end_time.date!) : Number(event.end_time.timestamp) * 1000
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
       throw new FeishuError('api', '飞书返回的日程时间无效，请稍后重试。')
+    // instance_view includes room attendees; keep names only, never user attendees or IDs.
+    const rooms = [
+      ...new Set(
+        (event.attendees ?? [])
+          .filter(
+            (attendee) =>
+              (attendee.type === 'resource' || (!attendee.type && !!attendee.room_id)) &&
+              !['decline', 'removed'].includes(attendee.rsvp_status ?? ''),
+          )
+          .map((attendee) => {
+            const name = attendee.display_name?.trim() || '会议室名称未提供'
+            return attendee.rsvp_status === 'needs_action'
+              ? `${name}（预约中）`
+              : attendee.rsvp_status === 'tentative'
+                ? `${name}（待定）`
+                : name
+          }),
+      ),
+    ]
+    const location = [
+      ...new Set([event.location?.name?.trim(), event.location?.address?.trim()].filter(Boolean)),
+    ].join(' · ')
     events.push({
       id: event.event_id,
       title: event.summary?.trim() || '未命名日程',
@@ -73,6 +106,8 @@ export function normalizeEvents(input: unknown[]): CalendarEvent[] {
       end,
       allDay,
       ...(allDay ? { startDate: event.start_time.date, endDate: event.end_time.date } : {}),
+      ...(rooms.length ? { rooms } : {}),
+      ...(location ? { location } : {}),
     })
   }
   return events.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id))

@@ -36,3 +36,28 @@ export function eventRange(event: CalendarEvent) {
     ? `${clockTime(event.start)}–${clockTime(event.end)}`
     : `${start.getMonth() + 1}/${start.getDate()} ${clockTime(event.start)}–${end.getMonth() + 1}/${end.getDate()} ${clockTime(event.end)}`
 }
+
+export function eventTag(event: CalendarEvent, day: Date, now: Date, nextId?: string) {
+  const key = dateKey(day)
+  if (event.id === nextId && dateKey(new Date(event.start)) === key) return 'NEXT'
+  if (key === dateKey(now)) return 'TODAY'
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  return key === dateKey(tomorrow) ? 'TOMORROW' : ''
+}
+
+export function eventDetailRange(event: CalendarEvent) {
+  const formatDate = (value: number) =>
+    new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    }).format(value)
+  const start = formatDate(event.start)
+  // All-day end dates are exclusive; show the final covered day, including across DST.
+  const end = formatDate(event.allDay ? event.end - 1 : event.end)
+  if (event.allDay) return `${start === end ? start : `${start} — ${end}`} · 全天`
+  return start === end
+    ? `${start} · ${clockTime(event.start)}–${clockTime(event.end)}`
+    : `${start} ${clockTime(event.start)} — ${end} ${clockTime(event.end)}`
+}

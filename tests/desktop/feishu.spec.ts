@@ -126,7 +126,15 @@ async function injectMocks() {
         const items: unknown[] = [
           timed('past', '已完成 · 晨间计划', base.getTime(), base.getTime() + 60000),
           timed('ongoing', '进行中 · 产品讨论', now.getTime() - 60000, now.getTime() + 300000),
-          timed('next', '下一场 · 设计评审', now.getTime() + 600000, now.getTime() + 2400000),
+          {
+            ...timed('next', '下一场 · 设计评审', now.getTime() + 600000, now.getTime() + 2400000),
+            attendees: [
+              { type: 'resource', display_name: '上海 · 浦江会议室', rsvp_status: 'accept' },
+              { type: 'resource', display_name: '北京 · 山海会议室', rsvp_status: 'needs_action' },
+              { type: 'user', display_name: '不应显示的参会人' },
+            ],
+            location: { name: '创作中心', address: '二层' },
+          },
         ]
         for (let day = 1; day < 8; day++)
           for (const hour of [10, 14, 17]) {
@@ -286,7 +294,13 @@ test('calendar OAuth follows its original account, shares connections, exports n
   ).toBe(1)
   await cards.first().screenshot({ path: 'test-results/feishu-calendar.png' })
   await expect(cards.first().locator('.calendar-event.is-past')).toContainText('晨间计划')
-  await expect(cards.first().locator('.is-ongoing')).toHaveText('进行中')
+  await expect(
+    cards
+      .first()
+      .locator('.calendar-event')
+      .filter({ hasText: '进行中 · 产品讨论' })
+      .locator('.calendar-event-tag'),
+  ).toHaveText('TODAY')
   expect(
     await cards
       .first()
@@ -325,6 +339,59 @@ test('calendar OAuth follows its original account, shares connections, exports n
   await expect(cards.first().getByRole('button', { name: '连接飞书', exact: true })).toBeVisible()
   await expect(cards.nth(1).getByRole('button', { name: '连接飞书', exact: true })).toBeVisible()
   await expect(page.getByText('设计评审', { exact: true })).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
+test('calendar shows relative tags and hover details with rooms, keyboard access and no clipping', async () => {
+  await add()
+  const complete = await authorize()
+  await complete()
+  await page.getByRole('button', { name: '关闭对话框' }).click()
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1100, 720))
+  const card = page.getByRole('article', { name: '飞书日历', exact: true })
+  const tags = await card.locator('.calendar-event-tag').allTextContents()
+  expect(tags).toContain('TODAY')
+  expect(tags).toContain('NEXT')
+  expect(tags).toContain('TOMORROW')
+  expect(tags.every((tag) => ['TODAY', 'NEXT', 'TOMORROW'].includes(tag))).toBe(true)
+  await expect(card.locator('.calendar-day').nth(2).locator('.calendar-event-tag')).toHaveCount(0)
+  const row = card.locator('.calendar-event.is-next')
+  await row.hover()
+  const detail = page.getByRole('tooltip')
+  await expect(detail).toContainText('下一场 · 设计评审')
+  await expect(detail).toContainText('上海 · 浦江会议室')
+  await expect(detail).toContainText('北京 · 山海会议室（预约中）')
+  await expect(detail).toContainText('地点：创作中心 · 二层')
+  await expect(detail).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}|\d{2}:\d{2} — /)
+  await expect(detail).not.toContainText('不应显示的参会人')
+  const bounds = (await detail.boundingBox())!
+  const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+  expect(bounds.x).toBeGreaterThanOrEqual(0)
+  expect(bounds.y).toBeGreaterThanOrEqual(0)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width)
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height)
+  await detail.hover()
+  await expect(detail).toBeVisible()
+  await page.screenshot({ path: 'test-results/feishu-calendar-details.png' })
+  await page.mouse.move(5, 5)
+  await expect(detail).toHaveCount(0)
+  await row.focus()
+  await expect(detail).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(detail).toHaveCount(0)
+  const allDay = card.locator('.calendar-event').filter({ hasText: '全天 · 留给创作' })
+  await allDay.hover()
+  await expect(detail).toContainText('全天')
+  await expect(detail).toContainText('飞书未提供会议室信息')
+  await card.locator('.calendar-scroll').evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await expect(detail).toHaveCount(0)
+  const last = card.locator('.calendar-event').last()
+  await last.hover()
+  await expect(detail).toBeVisible()
+  await page.getByRole('button', { name: '应用设置' }).click()
+  await expect(detail).toHaveCount(0)
   expect(errors).toEqual([])
 })
 

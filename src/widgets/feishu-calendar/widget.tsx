@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { CalendarDays, RotateCw, Settings2 } from 'lucide-react'
 import { defineWidget, type WidgetContext } from '../../sdk/types'
 import { dateKey } from '../../shared/feishu'
-import { agendaDays, clockTime, eventRange, nextEvent } from './presentation'
+import { agendaDays, clockTime, eventRange, eventTag, nextEvent } from './presentation'
+import { CalendarEventRow } from './event-row'
 import { useAgenda } from './use-agenda'
 import './calendar.css'
 
@@ -138,39 +139,15 @@ function Calendar({
                     {day.key === today && !day.events.length && (
                       <p className="calendar-today-empty">今天没有日程，享受这段留白。</p>
                     )}
-                    {day.events.map((event) => {
-                      const isNext =
-                        event.id === upcoming?.id && dateKey(new Date(event.start)) === day.key
-                      const ongoing =
-                        !event.allDay &&
-                        event.start <= now.getTime() &&
-                        event.end > now.getTime() &&
-                        day.key === today
-                      const past = event.end <= now.getTime()
-                      const continued = event.start < day.date.getTime()
-                      const tag = ongoing
-                        ? '进行中'
-                        : isNext
-                          ? 'NEXT'
-                          : day.key === today
-                            ? 'TODAY'
-                            : `${day.date.getMonth() + 1}/${day.date.getDate()}`
-                      return (
-                        <div
-                          key={event.id}
-                          className={`calendar-event ${isNext ? 'is-next' : ''} ${past ? 'is-past' : ''}`}
-                          title={`${event.title} · ${eventRange(event)}`}
-                        >
-                          <time>
-                            {event.allDay ? '全天' : continued ? '跨天' : clockTime(event.start)}
-                          </time>
-                          <span className="calendar-event-title">{event.title}</span>
-                          <span className={`calendar-event-tag ${ongoing ? 'is-ongoing' : ''}`}>
-                            {tag}
-                          </span>
-                        </div>
-                      )
-                    })}
+                    {day.events.map((event) => (
+                      <CalendarEventRow
+                        key={event.id}
+                        event={event}
+                        day={day.date}
+                        tag={eventTag(event, day.date, now, upcoming?.id)}
+                        past={event.end <= now.getTime()}
+                      />
+                    ))}
                   </section>
                 ))
             )}

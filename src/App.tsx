@@ -389,7 +389,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
       <footer className="app-footer">
         <span>
           <span className="footer-logo">◈</span> ALL IN ONE WORKSPACE{' '}
-          <span className="version-tag">v0.3.1</span>
+          <span className="version-tag">v0.3.2</span>
         </span>
         <span>
           <ShieldCheck size={12} />
@@ -512,7 +512,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             </div>
             <div>
               <strong>All In One Workspace</strong>
-              <p>版本 0.3.1 · 为你的日常，留一块空间。</p>
+              <p>版本 0.3.2 · 为你的日常，留一块空间。</p>
             </div>
           </div>
         </Modal>

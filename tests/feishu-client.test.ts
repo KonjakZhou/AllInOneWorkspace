@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { FeishuClient, normalizeEvents } from '../electron/feishu/client'
-import { agendaDays, eventRange, nextEvent } from '../src/widgets/feishu-calendar/presentation'
+import {
+  agendaDays,
+  eventDetailRange,
+  eventRange,
+  eventTag,
+  nextEvent,
+} from '../src/widgets/feishu-calendar/presentation'
 import { calendarRange, dateKey, localDate } from '../src/shared/feishu'
 import { config, now } from './feishu-fixtures'
 
@@ -61,6 +67,78 @@ describe('Feishu API and event semantics', () => {
         },
       ]),
     ).toEqual([{ id: 'event', title: '日程', start: now, end: now + 60000, allDay: false }])
+  })
+  it('extracts only room names and locations from instance views, excluding failed bookings and users', () => {
+    const result = normalizeEvents([
+      {
+        ...timed('event', now, now + 60000),
+        attendees: [
+          {
+            type: 'resource',
+            display_name: '  上海 · 会议室 A  ',
+            room_id: 'room-a',
+            rsvp_status: 'accept',
+          },
+          { type: 'resource', display_name: '上海 · 会议室 A', rsvp_status: 'accept' },
+          { type: 'resource', display_name: '会议室 B', rsvp_status: 'needs_action' },
+          { room_id: 'room-c', display_name: '会议室 C', rsvp_status: 'tentative' },
+          { type: 'resource', display_name: '预约失败', rsvp_status: 'decline' },
+          { type: 'resource', display_name: '已删除', rsvp_status: 'removed' },
+          { type: 'user', display_name: '私人姓名', user_id: 'private-user' },
+        ],
+        location: { name: '办公区', address: '二层', latitude: 1, longitude: 2 },
+      },
+    ])
+    expect(result[0].rooms).toEqual(['上海 · 会议室 A', '会议室 B（预约中）', '会议室 C（待定）'])
+    expect(result[0].location).toBe('办公区 · 二层')
+    expect(JSON.stringify(result)).not.toMatch(
+      /room-a|room-c|私人姓名|private-user|latitude|longitude|预约失败|已删除/,
+    )
+    expect(
+      normalizeEvents([{ ...timed('empty', now, now + 60000), attendees: null, location: null }])[0]
+        .rooms,
+    ).toBeUndefined()
+  })
+  it('shows only NEXT, TODAY and TOMORROW, including ongoing events and year boundaries', () => {
+    const today = new Date(2026, 11, 31, 12)
+    const tomorrow = new Date(2027, 0, 1)
+    const later = new Date(2027, 0, 2)
+    const event = {
+      id: 'e',
+      title: '日程',
+      start: tomorrow.getTime() + 3600000,
+      end: later.getTime(),
+      allDay: false,
+    }
+    expect(eventTag(event, tomorrow, today, 'e')).toBe('NEXT')
+    expect(eventTag(event, tomorrow, today, 'other')).toBe('TOMORROW')
+    expect(eventTag(event, later, today, 'other')).toBe('')
+    const ongoing = { ...event, start: today.getTime() - 1000, end: today.getTime() + 1000 }
+    expect(eventTag(ongoing, today, today)).toBe('TODAY')
+    expect(eventTag(event, later, today, 'e')).toBe('')
+  })
+  it('shows full date/time details and the final covered day for all-day events', () => {
+    const event = {
+      id: 'e',
+      title: '日程',
+      start: new Date(2026, 10, 24, 10, 30).getTime(),
+      end: new Date(2026, 10, 24, 12).getTime(),
+      allDay: false,
+    }
+    expect(eventDetailRange(event)).toContain('2026年11月24日')
+    expect(eventDetailRange(event)).toContain('10:30–12:00')
+    const cross = { ...event, end: new Date(2026, 10, 25, 1).getTime() }
+    expect(eventDetailRange(cross)).toContain('2026年11月25日')
+    expect(eventDetailRange(cross)).toContain('01:00')
+    const allDay = {
+      ...event,
+      allDay: true,
+      start: new Date(2026, 10, 24).getTime(),
+      end: new Date(2026, 10, 26).getTime(),
+    }
+    expect(eventDetailRange(allDay)).toContain('2026年11月25日')
+    expect(eventDetailRange(allDay)).not.toContain('26日')
+    expect(eventDetailRange(allDay)).toContain('全天')
   })
   it('uses eight local natural days across month boundaries', () => {
     const range = calendarRange(new Date(2026, 10, 28, 23, 59))
