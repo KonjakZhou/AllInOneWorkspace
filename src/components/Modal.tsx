@@ -21,10 +21,22 @@ export function Modal({
   useEffect(() => {
     const dialog = ref.current!
     const previous = document.activeElement as HTMLElement | null
+    const restoreFocusVisible =
+      document.documentElement.dataset.inputMethod !== 'pointer' &&
+      (previous?.matches(':focus-visible') ?? false)
     dialog.showModal()
     return () => {
       dialog.close()
-      previous?.focus()
+      if (previous?.isConnected) {
+        // Native close can restore a keyboard ring after Esc even for a mouse-opened dialog.
+        // focusVisible only takes effect when focus actually moves to the element.
+        if (
+          document.activeElement === previous &&
+          previous.matches(':focus-visible') !== restoreFocusVisible
+        )
+          previous.blur()
+        previous.focus({ preventScroll: true, focusVisible: restoreFocusVisible })
+      }
     }
   }, [])
   return (

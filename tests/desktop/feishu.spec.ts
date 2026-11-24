@@ -221,6 +221,45 @@ test.afterEach(async () => {
   await rm(directory, { recursive: true, force: true })
 })
 
+test('calendar settings restore pointer focus without a ring while preserving keyboard focus visibility', async () => {
+  await add()
+  const settings = page.getByRole('button', { name: '日历连接设置', exact: true })
+  const state = () =>
+    settings.evaluate((el) => ({
+      focused: document.activeElement === el,
+      visible: el.matches(':focus-visible'),
+      outline: getComputedStyle(el).outlineStyle,
+    }))
+  await settings.click()
+  await page.getByRole('button', { name: '关闭对话框' }).click()
+  await expect.poll(state).toEqual({ focused: true, visible: false, outline: 'none' })
+  await settings.click()
+  await page.getByRole('button', { name: '高级设置：连接已有应用' }).click()
+  await page.getByLabel('飞书 App ID', { exact: true }).fill('cli_test')
+  await page.getByRole('button', { name: '关闭对话框' }).click()
+  await expect.poll(state).toEqual({ focused: true, visible: false, outline: 'none' })
+  await settings.click()
+  await page.getByRole('button', { name: '高级设置：连接已有应用' }).click()
+  await page.getByLabel('飞书 App ID', { exact: true }).fill('cli_test')
+  await page.keyboard.press('Escape')
+  await expect.poll(state).toEqual({ focused: true, visible: false, outline: 'none' })
+  await settings.screenshot({ path: 'test-results/calendar-settings-pointer-focus.png' })
+  await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Tab')
+  await expect.poll(state).toEqual({ focused: true, visible: true, outline: 'solid' })
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect.poll(state).toEqual({ focused: true, visible: true, outline: 'solid' })
+  await settings.click()
+  await page.keyboard.press('Escape')
+  await expect.poll(state).toEqual({ focused: true, visible: false, outline: 'none' })
+  await settings.click()
+  await page.getByRole('button', { name: '关闭对话框' }).click()
+  await expect.poll(state).toEqual({ focused: true, visible: false, outline: 'none' })
+  expect(errors).toEqual([])
+})
+
 test('one-click creates an app, resumes cancelled consent without creating another, and reads the calendar', async () => {
   await add()
   await page.getByRole('button', { name: '应用设置' }).click()

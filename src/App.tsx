@@ -57,6 +57,23 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
   const [dialog, setDialog] = useState<Dialog>(null)
   const [editing, setEditing] = useState(false)
   useEffect(() => {
+    // Modal restoration must know the input method even if :focus-visible is still sticky.
+    const root = document.documentElement
+    const pointer = () => {
+      root.dataset.inputMethod = 'pointer'
+    }
+    const keyboard = (event: KeyboardEvent) => {
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) root.dataset.inputMethod = 'keyboard'
+    }
+    document.addEventListener('pointerdown', pointer, true)
+    document.addEventListener('keydown', keyboard, true)
+    return () => {
+      document.removeEventListener('pointerdown', pointer, true)
+      document.removeEventListener('keydown', keyboard, true)
+      delete root.dataset.inputMethod
+    }
+  }, [])
+  useEffect(() => {
     void controller.load()
     return api.onCloseRequested(async () => {
       try {
@@ -389,7 +406,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
       <footer className="app-footer">
         <span>
           <span className="footer-logo">◈</span> ALL IN ONE WORKSPACE{' '}
-          <span className="version-tag">v0.3.4</span>
+          <span className="version-tag">v0.3.5</span>
         </span>
         <span>
           <ShieldCheck size={12} />
@@ -512,7 +529,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             </div>
             <div>
               <strong>All In One Workspace</strong>
-              <p>版本 0.3.4 · 为你的日常，留一块空间。</p>
+              <p>版本 0.3.5 · 为你的日常，留一块空间。</p>
             </div>
           </div>
         </Modal>
