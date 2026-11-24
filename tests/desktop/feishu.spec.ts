@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path'
 let app: ElectronApplication, page: Page, directory: string
 const errors: string[] = []
 async function add() {
-  await page.getByRole('button', { name: '添加组件', exact: true }).click()
+  await page.getByRole('button', { name: '为工作区再添一点可能', exact: true }).click()
   await page
     .locator('.library-card')
     .filter({ has: page.getByRole('heading', { name: '飞书日历', exact: true }) })

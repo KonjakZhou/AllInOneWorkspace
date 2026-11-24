@@ -33,16 +33,31 @@ export const widgetSchema = z.object({
   data: jsonSchema,
   layout: layoutSchema,
 })
+export const savedWidgetSchema = z.object({
+  id: idSchema,
+  name: z.string().trim().min(1, '请输入记录名称').max(80, '记录名称最多 80 个字符'),
+  savedAt: z.string().datetime(),
+  widget: widgetSchema,
+})
 export const workspaceSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     accountId: idSchema,
     widgets: z.array(widgetSchema).max(200),
+    savedWidgets: z
+      .array(savedWidgetSchema)
+      .max(500, '最多保留 500 份卡片记录，请先清理不需要的记录'),
   })
   .superRefine((doc, context) => {
-    if (new Set(doc.widgets.map((widget) => widget.id)).size !== doc.widgets.length) {
+    const instanceIds = [
+      ...doc.widgets.map((widget) => widget.id),
+      ...doc.savedWidgets.map((record) => record.widget.id),
+    ]
+    if (new Set(instanceIds).size !== instanceIds.length) {
       context.addIssue({ code: 'custom', message: '组件实例 ID 重复' })
     }
+    if (new Set(doc.savedWidgets.map((record) => record.id)).size !== doc.savedWidgets.length)
+      context.addIssue({ code: 'custom', message: '本地记录 ID 重复' })
     for (let i = 0; i < doc.widgets.length; i++) {
       const a = doc.widgets[i].layout
       for (let j = i + 1; j < doc.widgets.length; j++) {
@@ -73,12 +88,13 @@ export const indexSchema = z
   )
 export const exportSchema = z.object({
   format: z.literal('all-in-one-workspace'),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   exportedAt: z.string().datetime(),
   account: z.object({ name: nameSchema }),
   workspace: workspaceSchema,
 })
 export type WidgetInstance = z.infer<typeof widgetSchema>
+export type SavedWidget = z.infer<typeof savedWidgetSchema>
 export type Workspace = z.infer<typeof workspaceSchema>
 export type Account = z.infer<typeof accountSchema>
 export type AccountIndex = z.infer<typeof indexSchema>
@@ -95,18 +111,18 @@ export class UnsupportedVersionError extends Error {
     super('数据来自更新版本的应用，请先升级应用；原文件未修改。')
   }
 }
-export function checkVersion(value: unknown): void {
+export function checkVersion(value: unknown, maximum = 1): void {
   if (
     value &&
     typeof value === 'object' &&
     'schemaVersion' in value &&
     typeof value.schemaVersion === 'number' &&
-    value.schemaVersion > 1
+    value.schemaVersion > maximum
   )
     throw new UnsupportedVersionError()
 }
 export function parseWorkspace(value: unknown): Workspace {
-  checkVersion(value)
+  checkVersion(value, 2)
   // v0 used the same grid/config/data shape, but widget versions were optional.
   if (value && typeof value === 'object' && 'schemaVersion' in value && value.schemaVersion === 0) {
     const legacy = z
@@ -117,10 +133,13 @@ export function parseWorkspace(value: unknown): Workspace {
       .parse(value)
     return workspaceSchema.parse({
       ...legacy,
-      schemaVersion: 1,
+      schemaVersion: 2,
+      savedWidgets: [],
       widgets: legacy.widgets.map((widget) => ({ ...widget, version: widget.version ?? 1 })),
     })
   }
+  if (value && typeof value === 'object' && 'schemaVersion' in value && value.schemaVersion === 1)
+    return workspaceSchema.parse({ ...value, schemaVersion: 2, savedWidgets: [] })
   return workspaceSchema.parse(value)
 }
 export function parseIndex(value: unknown): AccountIndex {
@@ -128,11 +147,11 @@ export function parseIndex(value: unknown): AccountIndex {
   return indexSchema.parse(value)
 }
 export function parseExport(value: unknown): WorkspaceExport {
-  checkVersion(value)
+  checkVersion(value, 2)
   const envelope = z
     .object({
       format: z.literal('all-in-one-workspace'),
-      schemaVersion: z.union([z.literal(0), z.literal(1)]),
+      schemaVersion: z.union([z.literal(0), z.literal(1), z.literal(2)]),
       exportedAt: z.string().datetime(),
       account: z.object({ name: nameSchema }),
       workspace: z.unknown(),
@@ -140,12 +159,12 @@ export function parseExport(value: unknown): WorkspaceExport {
     .parse(value)
   return exportSchema.parse({
     ...envelope,
-    schemaVersion: 1,
+    schemaVersion: 2,
     workspace: parseWorkspace(envelope.workspace),
   })
 }
 export function emptyWorkspace(accountId: string): Workspace {
-  return { schemaVersion: 1, accountId, widgets: [] }
+  return { schemaVersion: 2, accountId, widgets: [], savedWidgets: [] }
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof z.ZodError)

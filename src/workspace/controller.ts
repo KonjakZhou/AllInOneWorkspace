@@ -173,14 +173,65 @@ export class WorkspaceController {
       ],
     }))
   }
-  removeWidget(id: string) {
+  removeWidget(id: string, mode: 'keep' | 'delete', name?: string) {
+    this.change((workspace) => {
+      const widget = workspace.widgets.find((item) => item.id === id)
+      if (!widget) throw new Error('卡片已不存在')
+      return {
+        ...workspace,
+        widgets: workspace.widgets.filter((item) => item.id !== id),
+        savedWidgets:
+          mode === 'keep'
+            ? [
+                ...workspace.savedWidgets,
+                {
+                  id: crypto.randomUUID(),
+                  name: name ?? this.registry.get(widget.type)?.name ?? widget.type,
+                  savedAt: new Date().toISOString(),
+                  widget,
+                },
+              ]
+            : workspace.savedWidgets,
+      }
+    })
+  }
+  restoreWidget(recordId: string) {
+    this.change((workspace) => {
+      const record = workspace.savedWidgets.find((item) => item.id === recordId)
+      if (!record) throw new Error('这份记录已不存在，请重新选择')
+      const definition = this.registry.get(record.widget.type)
+      const widget = prepareWidget(record.widget, definition)
+      const size = {
+        w: Math.max(widget.layout.w, definition?.minSize.w ?? 1),
+        h: Math.max(widget.layout.h, definition?.minSize.h ?? 2),
+      }
+      return {
+        ...workspace,
+        // A new instance identity prevents callbacks from before removal from reaching this card.
+        widgets: [
+          ...workspace.widgets,
+          {
+            ...widget,
+            id: crypto.randomUUID(),
+            layout: availablePosition(workspace.widgets, size),
+          },
+        ],
+        savedWidgets: workspace.savedWidgets.filter((item) => item.id !== recordId),
+      }
+    })
+  }
+  deleteSavedWidget(recordId: string) {
     this.change((workspace) => ({
       ...workspace,
-      widgets: workspace.widgets.filter((widget) => widget.id !== id),
+      savedWidgets: workspace.savedWidgets.filter((item) => item.id !== recordId),
     }))
   }
   updateWidget(accountId: string, id: string, field: 'config' | 'data', value: Update<Json>) {
-    if (this.state.snapshot?.workspace.accountId !== accountId) return
+    if (
+      this.state.snapshot?.workspace.accountId !== accountId ||
+      !this.state.snapshot.workspace.widgets.some((widget) => widget.id === id)
+    )
+      return
     this.change((workspace) => ({
       ...workspace,
       widgets: workspace.widgets.map((widget) => {

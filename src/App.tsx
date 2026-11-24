@@ -3,12 +3,10 @@ import GridLayout, { useContainerWidth, noCompactor, type Layout } from 'react-g
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
-  ArrowUpRight,
   Check,
   ChevronDown,
   CircleHelp,
   Columns3,
-  FolderHeart,
   Grid2X2,
   LayoutGrid,
   LoaderCircle,
@@ -17,7 +15,6 @@ import {
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   Users,
   X,
@@ -25,7 +22,9 @@ import {
 import { widgetRegistry } from './widgets'
 import { WorkspaceController } from './workspace/controller'
 import { Modal } from './components/Modal'
-import { WidgetCard, WidgetIcon } from './components/WidgetCard'
+import { WidgetCard } from './components/WidgetCard'
+import { WidgetLibrary } from './components/WidgetLibrary'
+import { RemoveWidgetDialog } from './components/RemoveWidgetDialog'
 import { FeishuConnectionSettings } from './components/FeishuConnectionSettings'
 import type { Account } from './shared/model'
 import { errorMessage } from './shared/model'
@@ -172,14 +171,16 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             {editing ? <Check size={16} /> : <SlidersHorizontal size={16} />}
             {editing ? '完成编辑' : '编辑布局'}
           </button>
-          <button
-            className="button primary"
-            onClick={() => setDialog('library')}
-            disabled={state.busy}
-          >
-            <Plus size={17} />
-            添加组件
-          </button>
+          {editing && (
+            <button
+              className="button primary"
+              onClick={() => setDialog('library')}
+              disabled={state.busy}
+            >
+              <Plus size={17} />
+              添加组件
+            </button>
+          )}
           <span className="toolbar-separator" />
           <button
             className="icon-button settings-button"
@@ -297,14 +298,6 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
                   <br />
                   让工作和生活，慢慢长成喜欢的样子。
                 </p>
-                <button
-                  className="button primary"
-                  onClick={() => setDialog('library')}
-                  disabled={state.busy}
-                >
-                  <Plus size={17} />
-                  添加第一个组件
-                </button>
                 <div className="empty-capabilities">
                   <span>
                     <Columns3 size={14} />
@@ -358,55 +351,15 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             )
           }
         </Canvas>
-        {!widgets.length && (
-          <section className="starter-strip">
-            <div className="starter-heading">
-              <span className="small-icon">
-                <Sparkles size={19} />
-              </span>
-              <div>
-                <strong>从一个小组件开始</strong>
-                <p>选一个起点，让空间随你一起成长。</p>
-              </div>
-            </div>
-            {[...widgetRegistry.values()].slice(0, 2).map((definition) => (
-              <button
-                key={definition.type}
-                className="starter-option"
-                onClick={() => local(() => controller.addWidget(definition.type))}
-                disabled={state.busy}
-              >
-                <span className={`sample-icon ${definition.accent}`}>
-                  <WidgetIcon icon={definition.icon} />
-                </span>
-                <span>
-                  <strong>{definition.name}</strong>
-                  <small title={definition.description}>{definition.description}</small>
-                </span>
-                <Plus size={16} />
-              </button>
-            ))}
-            <button className="starter-more" onClick={() => setDialog('library')}>
-              查看组件库
-              <ArrowUpRight size={16} />
-            </button>
-          </section>
-        )}
-        {widgets.length > 0 && (
-          <button
-            className="add-another"
-            onClick={() => setDialog('library')}
-            disabled={state.busy}
-          >
-            <Plus size={16} />
-            为工作区再添一点可能
-          </button>
-        )}
+        <button className="add-another" onClick={() => setDialog('library')} disabled={state.busy}>
+          <Plus size={16} />
+          为工作区再添一点可能
+        </button>
       </main>
       <footer className="app-footer">
         <span>
           <span className="footer-logo">◈</span> ALL IN ONE WORKSPACE{' '}
-          <span className="version-tag">v0.3.5</span>
+          <span className="version-tag">v0.4.0</span>
         </span>
         <span>
           <ShieldCheck size={12} />
@@ -414,50 +367,12 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
         </span>
       </footer>
       {dialog === 'library' && (
-        <Modal
-          title="为你的空间，添一块拼图"
-          subtitle="选择需要的组件。每种组件都可以添加多次，独立设置。"
+        <WidgetLibrary
+          key={account.id}
+          controller={controller}
+          records={snapshot.workspace.savedWidgets}
           onClose={() => setDialog(null)}
-          wide
-        >
-          <div className="library-heading">
-            <span>
-              全部组件 <b>{widgetRegistry.size}</b>
-            </span>
-            <span className="badge">本地组件库</span>
-          </div>
-          <div className="library-grid">
-            {[...widgetRegistry.values()].map((definition) => (
-              <div className={`library-card accent-${definition.accent}`} key={definition.type}>
-                <span className={`sample-icon ${definition.accent}`}>
-                  <WidgetIcon icon={definition.icon} size={24} />
-                </span>
-                <h3>{definition.name}</h3>
-                <p>{definition.description}</p>
-                <div>
-                  <span className="field-hint">{definition.defaultSize.w} 列 · 可调整</span>
-                  <button
-                    className="button small"
-                    onClick={() => {
-                      local(() => controller.addWidget(definition.type))
-                      setDialog(null)
-                    }}
-                  >
-                    <Plus size={14} />
-                    添加
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="library-note">
-            <BlocksIcon />
-            <div>
-              <strong>让工作区随你一起成长</strong>
-              <p>更多组件可以按你的需要，逐个加入。现有布局会一直保留。</p>
-            </div>
-          </div>
-        </Modal>
+        />
       )}
       {dialog === 'accounts' && (
         <Modal
@@ -491,7 +406,9 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
           <div className="settings-section">
             <span className="eyebrow">DATA & PORTABILITY</span>
             <h3>账号迁移</h3>
-            <p>导出当前账号的布局、组件配置和内容。导入会创建一个新账号，不会覆盖已有数据。</p>
+            <p>
+              导出当前账号的布局、组件配置、内容及保留的本地记录。导入会创建一个新账号，不会覆盖已有数据。
+            </p>
             <div className="button-row">
               <button
                 className="button"
@@ -515,7 +432,9 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             <span className="eyebrow">ON THIS DEVICE</span>
             <h3>本地数据目录</h3>
             <code className="path-display">{snapshot.dataDirectory}</code>
-            <p>数据独立于源码仓库。每次保存都会保留上一份有效备份。</p>
+            <p>
+              数据独立于源码仓库。普通更改保留上一份有效备份；移除、恢复或删除记录时同步更新备份。
+            </p>
           </div>
           {state.error && (
             <p className="inline-error" role="alert">
@@ -529,21 +448,26 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             </div>
             <div>
               <strong>All In One Workspace</strong>
-              <p>版本 0.3.5 · 为你的日常，留一块空间。</p>
+              <p>版本 0.4.0 · 为你的日常，留一块空间。</p>
             </div>
           </div>
         </Modal>
       )}
-      {dialog && typeof dialog === 'object' && (
+      {dialog &&
+        typeof dialog === 'object' &&
+        dialog.kind === 'remove-widget' &&
+        widgets.some((widget) => widget.id === dialog.id) && (
+          <RemoveWidgetDialog
+            key={dialog.id}
+            widget={widgets.find((widget) => widget.id === dialog.id)!}
+            controller={controller}
+            onClose={() => setDialog(null)}
+          />
+        )}
+      {dialog && typeof dialog === 'object' && dialog.kind === 'delete-account' && (
         <Modal
-          title={
-            dialog.kind === 'remove-widget' ? '移除这个组件？' : `删除“${dialog.account.name}”？`
-          }
-          subtitle={
-            dialog.kind === 'remove-widget'
-              ? '这个实例的配置和内容会一起删除，其他组件不受影响。'
-              : '此账号的布局、组件配置和内容会一起删除。你可以先导出备份。'
-          }
+          title={`删除“${dialog.account.name}”？`}
+          subtitle="此账号的布局、组件设置、内容和保留的本地记录会一起删除。你可以先导出备份。"
           onClose={() => setDialog(null)}
           locked={state.busy}
         >
@@ -555,14 +479,9 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             <button
               className="button danger"
               disabled={state.busy}
-              onClick={() => {
-                if (dialog.kind === 'remove-widget') {
-                  local(() => controller.removeWidget(dialog.id))
-                  setDialog(null)
-                } else void perform(() => controller.deleteAccount(dialog.account.id), true)
-              }}
+              onClick={() => void perform(() => controller.deleteAccount(dialog.account.id), true)}
             >
-              确认{dialog.kind === 'remove-widget' ? '移除' : '删除'}
+              确认删除
             </button>
           </div>
         </Modal>
@@ -587,9 +506,6 @@ function Canvas({
   )
 }
 
-function BlocksIcon() {
-  return <FolderHeart size={24} />
-}
 function AccountManager({
   accounts,
   activeId,

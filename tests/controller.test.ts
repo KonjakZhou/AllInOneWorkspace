@@ -120,3 +120,152 @@ describe('workspace save coordination', () => {
     await controller.flush()
   })
 })
+
+describe('saved card records', () => {
+  it('keeps same-type instances independently and restores only the chosen record into free space', async () => {
+    const { controller, saved } = setup()
+    await controller.load()
+    controller.addWidget('starter.counter')
+    controller.addWidget('starter.counter')
+    const {
+      accountId,
+      widgets: [a, b],
+    } = controller.getState().snapshot!.workspace
+    controller.updateWidget(accountId, a.id, 'data', { count: 3 })
+    controller.updateWidget(accountId, b.id, 'data', { count: 17 })
+    controller.updateWidget(accountId, a.id, 'config', { title: '阅读', step: 2 })
+    controller.removeWidget(a.id, 'keep', '阅读进度')
+    controller.removeWidget(b.id, 'keep', '锻炼次数')
+    const records = controller.getState().snapshot!.workspace.savedWidgets
+    expect(records.map((record) => record.widget.data)).toEqual([{ count: 3 }, { count: 17 }])
+    expect(new Set(records.map((record) => record.id)).size).toBe(2)
+    controller.addWidget('starter.text')
+    controller.restoreWidget(records[0].id)
+    const restored = controller.getState().snapshot!.workspace
+    expect(restored.savedWidgets).toEqual([records[1]])
+    expect(restored.widgets[1]).toMatchObject({
+      config: { title: '阅读', step: 2 },
+      data: { count: 3 },
+      layout: { x: 4, y: 0, w: 4, h: 7 },
+    })
+    expect(restored.widgets[1].id).not.toBe(a.id)
+    controller.updateWidget(accountId, a.id, 'data', { count: 999 })
+    expect(controller.getState().snapshot!.workspace).toBe(restored)
+    await controller.flush()
+    expect(saved.at(-1)).toEqual(restored)
+  })
+
+  it('deletes only the selected card or saved record and permits adding a fresh instance', async () => {
+    const { controller } = setup()
+    await controller.load()
+    controller.addWidget('starter.counter')
+    controller.addWidget('starter.counter')
+    const [a, b] = controller.getState().snapshot!.workspace.widgets
+    controller.removeWidget(a.id, 'keep', '保留')
+    controller.removeWidget(b.id, 'delete')
+    let doc = controller.getState().snapshot!.workspace
+    expect(doc.widgets).toEqual([])
+    expect(doc.savedWidgets.map((record) => record.widget.id)).toEqual([a.id])
+    controller.addWidget('starter.counter')
+    expect(controller.getState().snapshot!.workspace.savedWidgets).toHaveLength(1)
+    controller.deleteSavedWidget(doc.savedWidgets[0].id)
+    doc = controller.getState().snapshot!.workspace
+    expect(doc.savedWidgets).toEqual([])
+    expect(doc.widgets[0].data).toEqual({ count: 0 })
+    await controller.flush()
+  })
+
+  it('keeps records isolated to their account and flushes them before switching', async () => {
+    const { controller, api, saved, first, second } = setup()
+    await controller.load()
+    controller.addWidget('starter.counter')
+    controller.removeWidget(
+      controller.getState().snapshot!.workspace.widgets[0].id,
+      'keep',
+      '账号一的记录',
+    )
+    const record = controller.getState().snapshot!.workspace.savedWidgets[0]
+    await controller.switchAccount(second.workspace.accountId)
+    expect(saved[0].savedWidgets).toEqual([record])
+    expect(controller.getState().snapshot!.workspace.savedWidgets).toEqual([])
+    expect(() => controller.restoreWidget(record.id)).toThrow('已不存在')
+    vi.mocked(api.switchAccount).mockResolvedValueOnce({ ...first, workspace: saved[0] })
+    await controller.switchAccount(first.workspace.accountId)
+    controller.restoreWidget(record.id)
+    expect(controller.getState().snapshot!.workspace.widgets[0].id).not.toBe(record.widget.id)
+    await controller.flush()
+  })
+
+  it('retains removal edits on failed save and does not switch until retry succeeds', async () => {
+    const { controller, api, second, saved } = setup()
+    await controller.load()
+    controller.addWidget('starter.counter')
+    await controller.flush()
+    controller.removeWidget(
+      controller.getState().snapshot!.workspace.widgets[0].id,
+      'keep',
+      '稍后继续',
+    )
+    vi.mocked(api.save).mockRejectedValueOnce(new Error('disk full'))
+    await expect(controller.switchAccount(second.workspace.accountId)).rejects.toThrow('disk full')
+    expect(controller.getState().snapshot!.workspace.savedWidgets).toHaveLength(1)
+    expect(api.switchAccount).not.toHaveBeenCalled()
+    await controller.flush()
+    expect(saved.at(-1)?.savedWidgets[0].name).toBe('稍后继续')
+  })
+
+  it('migrates records on restoration, preserves failed migrations, and restores missing types as placeholders', async () => {
+    const { api, first } = setup()
+    const definition = widgetRegistry.get('starter.counter')!
+    const widget = {
+      id: randomUUID(),
+      type: definition.type,
+      version: 1,
+      config: definition.defaultConfig,
+      data: { count: 12 },
+      layout: { x: 0, y: 0, w: 4, h: 7 },
+    }
+    const records = [
+      { id: randomUUID(), name: '旧记录', savedAt: new Date().toISOString(), widget },
+      {
+        id: randomUUID(),
+        name: '新版记录',
+        savedAt: new Date().toISOString(),
+        widget: { ...widget, id: randomUUID(), version: 99 },
+      },
+      {
+        id: randomUUID(),
+        name: '缺失组件',
+        savedAt: new Date().toISOString(),
+        widget: {
+          ...widget,
+          id: randomUUID(),
+          type: 'custom.missing',
+          data: { nested: ['原始数据'] },
+        },
+      },
+    ]
+    first.workspace.savedWidgets = records
+    const migrate = vi.fn(() => ({ config: definition.defaultConfig, data: { count: 24 } }))
+    const controller = new WorkspaceController(
+      api,
+      new Map([[definition.type, { ...definition, version: 2, minSize: { w: 5, h: 8 }, migrate }]]),
+    )
+    await controller.load()
+    expect(migrate).not.toHaveBeenCalled()
+    expect(() => controller.restoreWidget(records[1].id)).toThrow('更新版本')
+    expect(controller.getState().snapshot!.workspace.savedWidgets).toEqual(records)
+    controller.restoreWidget(records[0].id)
+    expect(controller.getState().snapshot!.workspace.widgets[0]).toMatchObject({
+      version: 2,
+      data: { count: 24 },
+      layout: { w: 5, h: 8 },
+    })
+    controller.restoreWidget(records[2].id)
+    expect(controller.getState().snapshot!.workspace.widgets[1].data).toEqual({
+      nested: ['原始数据'],
+    })
+    expect(controller.getState().snapshot!.workspace.savedWidgets).toEqual([records[1]])
+    await controller.flush()
+  })
+})

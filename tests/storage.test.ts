@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { WorkspaceStore } from '../electron/storage/workspace-store'
 import { JsonFiles } from '../electron/storage/json-files'
-import type { WidgetInstance } from '../src/shared/model'
+import { parseIndex, parseWorkspace, type WidgetInstance } from '../src/shared/model'
 
 let directory: string
 beforeEach(async () => {
@@ -140,7 +140,8 @@ describe('import, migration and recovery', () => {
       schemaVersion: 0,
       workspace: { ...original.workspace, schemaVersion: 0, widgets: [legacyWidget] },
     })
-    expect(result.workspace.schemaVersion).toBe(1)
+    expect(result.workspace.schemaVersion).toBe(2)
+    expect(result.workspace.savedWidgets).toEqual([])
     expect(result.workspace.widgets[0]).toEqual(widget)
   })
   it('restores validated backup, preserves damaged original and reports recovery', async () => {
@@ -190,5 +191,102 @@ describe('import, migration and recovery', () => {
     files.fail = false
     await store.save({ ...initial.workspace, widgets: [sample()] })
     expect((await store.load()).workspace.widgets).toHaveLength(1)
+  })
+})
+
+describe('retained card persistence', () => {
+  const record = (name = '计数进度') => ({
+    id: randomUUID(),
+    name,
+    savedAt: new Date().toISOString(),
+    widget: sample(42),
+  })
+
+  it('migrates v1 files and exports to v2 with no records; index still rejects newer versions', async () => {
+    const store = new WorkspaceStore(directory)
+    const initial = await store.load()
+    const legacy = {
+      schemaVersion: 1,
+      accountId: initial.workspace.accountId,
+      widgets: [sample(10)],
+    }
+    await writeFile(join(directory, 'accounts', `${legacy.accountId}.json`), JSON.stringify(legacy))
+    expect((await store.load()).workspace).toEqual({
+      ...legacy,
+      schemaVersion: 2,
+      savedWidgets: [],
+    })
+    const imported = await store.importAccount({
+      ...(await store.exportAccount(legacy.accountId)),
+      schemaVersion: 1,
+      workspace: legacy,
+    })
+    expect(imported.workspace.widgets).toEqual(legacy.widgets)
+    expect(imported.workspace.savedWidgets).toEqual([])
+    expect(() => parseIndex({ ...initial.index, schemaVersion: 2 })).toThrow('更新版本')
+  })
+
+  it('persists independent records across restart/export/import without changing the source account', async () => {
+    const store = new WorkspaceStore(directory)
+    const initial = await store.load()
+    const savedWidgets = [record('阅读'), record('运动')]
+    const workspace = { ...initial.workspace, savedWidgets }
+    await store.save(workspace)
+    expect((await new WorkspaceStore(directory).load()).workspace).toEqual(workspace)
+    const exported = await store.exportAccount(workspace.accountId)
+    expect(exported.schemaVersion).toBe(2)
+    const imported = await store.importAccount(exported)
+    expect(imported.workspace.savedWidgets).toEqual(savedWidgets)
+    await store.save({ ...imported.workspace, savedWidgets: [savedWidgets[1]] })
+    expect((await store.switchAccount(workspace.accountId)).workspace.savedWidgets).toEqual(
+      savedWidgets,
+    )
+  })
+
+  it('prevents removed cards and deleted records from returning through recovery backups', async () => {
+    const store = new WorkspaceStore(directory)
+    const initial = await store.load()
+    const widget = sample(18)
+    const path = join(directory, 'accounts', `${initial.workspace.accountId}.json`)
+    await store.save({ ...initial.workspace, widgets: [widget] })
+    const retained = { ...record(), widget }
+    await store.save({ ...initial.workspace, savedWidgets: [retained] })
+    await writeFile(path, '{broken')
+    const recovered = (await store.load()).workspace
+    expect(recovered.widgets).toEqual([])
+    expect(recovered.savedWidgets).toEqual([retained])
+    // Restore consumes the record and assigns a fresh instance identity.
+    await store.save({ ...initial.workspace, widgets: [{ ...widget, id: randomUUID() }] })
+    expect(JSON.parse(await readFile(path + '.bak', 'utf8')).savedWidgets).toEqual([])
+    await store.save(initial.workspace)
+    for (const suffix of ['', '.bak']) {
+      const file = await readFile(path + suffix, 'utf8')
+      expect(JSON.parse(file)).toEqual(initial.workspace)
+      expect(file).not.toContain('"count"')
+    }
+    await writeFile(path, '{broken')
+    expect((await store.load()).workspace).toEqual(initial.workspace)
+    await store.save({ ...initial.workspace, savedWidgets: [record()] })
+    await store.save(initial.workspace)
+    expect(JSON.parse(await readFile(path + '.bak', 'utf8')).savedWidgets).toEqual([])
+  })
+
+  it('rejects invalid records and duplicate identities but allows overlap between retained layouts', async () => {
+    const initial = await new WorkspaceStore(directory).load()
+    const a = record(),
+      b = record()
+    expect(
+      parseWorkspace({ ...initial.workspace, savedWidgets: [a, b] }).savedWidgets,
+    ).toHaveLength(2)
+    for (const savedWidgets of [
+      [a, a],
+      [{ ...a, savedAt: 'bad' }],
+      [{ ...a, name: '' }],
+      [{ ...a, widget: { ...a.widget, data: undefined } }],
+    ])
+      expect(() => parseWorkspace({ ...initial.workspace, savedWidgets })).toThrow()
+    expect(() =>
+      parseWorkspace({ ...initial.workspace, widgets: [a.widget], savedWidgets: [a] }),
+    ).toThrow('重复')
   })
 })

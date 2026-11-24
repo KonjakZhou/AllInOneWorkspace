@@ -103,7 +103,19 @@ export class WorkspaceStore {
       const workspace = parseWorkspace(input)
       this.requireAccount(await this.index(), workspace.accountId)
       const previous = await this.workspace(workspace.accountId)
-      await this.files.write(this.accountPath(workspace.accountId), workspace, previous)
+      // Structural removals commit the new state to the recovery copy too: a deleted card or
+      // saved record must not reappear after recovery. This also preserves the retained copy
+      // on archive/restore transitions. Ordinary edits still keep the preceding valid state.
+      const removed =
+        previous.widgets.some((old) => !workspace.widgets.some((item) => item.id === old.id)) ||
+        previous.savedWidgets.some(
+          (old) => !workspace.savedWidgets.some((item) => item.id === old.id),
+        )
+      await this.files.write(
+        this.accountPath(workspace.accountId),
+        workspace,
+        removed ? workspace : previous,
+      )
     })
   }
   createAccount(name: string): Promise<Snapshot> {
@@ -205,7 +217,7 @@ export class WorkspaceStore {
       const account = this.requireAccount(await this.index(), id)
       return {
         format: 'all-in-one-workspace',
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: new Date().toISOString(),
         account: { name: account.name },
         workspace: await this.workspace(id),

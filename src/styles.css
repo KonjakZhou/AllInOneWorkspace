@@ -1049,6 +1049,136 @@ button svg {
   margin-top: 6px;
   line-height: 1.7;
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.saved-record-heading {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin: 20px 0 12px;
+  color: #7e8d72;
+}
+.saved-record-list {
+  display: grid;
+  gap: 12px;
+}
+.saved-record {
+  padding: 17px;
+  border: 1px solid #e4e7db;
+  border-radius: 13px;
+  background: #fafbf5;
+}
+.saved-record-info {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.saved-record-info > div {
+  min-width: 0;
+}
+.saved-record-icon {
+  color: #879c73;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.saved-record h3 {
+  font-size: 14px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.saved-record p {
+  font-size: 11px;
+  color: #89957e;
+  line-height: 1.8;
+  margin-top: 6px;
+}
+.saved-record small {
+  font-size: 10px;
+  color: #89957e;
+}
+.record-actions {
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 12px;
+}
+.record-delete-confirm {
+  margin-top: 14px;
+  border-top: 1px solid #eaded4;
+  padding-top: 6px;
+}
+.record-delete-confirm p {
+  color: #aa6754;
+  margin-bottom: 12px;
+}
+.record-note {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #839078;
+  margin: 14px 0 20px;
+}
+.removal-options {
+  display: grid;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+}
+.removal-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 17px;
+  border: 1px solid #e4e7db;
+  border-radius: 13px;
+  cursor: pointer;
+}
+.removal-option.selected {
+  background: #f2f6eb;
+  border-color: #aabc9c;
+}
+.removal-option.destructive.selected {
+  background: #fcf0eb;
+  border-color: #d7a28c;
+}
+.removal-option input {
+  width: 15px;
+  height: 15px;
+  margin: 3px 0 0;
+  accent-color: #82996b;
+}
+.removal-option svg {
+  flex-shrink: 0;
+  color: #8d9c7f;
+}
+.removal-option strong {
+  font-size: 13px;
+  font-weight: 550;
+  display: block;
+}
+.removal-option small {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #8b947f;
+  display: block;
+  margin-top: 7px;
+}
+.record-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #7a8870;
+  margin-bottom: 22px;
+}
+.library-card h3 {
+  overflow-wrap: anywhere;
+}
 .form-stack {
   display: flex;
   flex-direction: column;

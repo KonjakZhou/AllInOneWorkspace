@@ -48,7 +48,7 @@ test('pnpm dev opens the real application with the Vite refresh preamble allowed
     const page = browser.contexts()[0].pages()[0]
     await expect(page.getByRole('heading', { name: '我的工作区.' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '你的空间，由你来定义' })).toBeVisible()
-    await page.getByRole('button', { name: '添加第一个组件' }).click()
+    await page.getByRole('button', { name: '为工作区再添一点可能' }).click()
     await expect(page.getByRole('dialog')).toContainText('文本卡片')
   } finally {
     if (child.pid && child.exitCode === null) process.kill(-child.pid, 'SIGTERM')
