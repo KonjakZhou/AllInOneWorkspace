@@ -4,6 +4,8 @@
 
 Electron + React + TypeScript + Vite。首版提供完整工作区壳子、账号管理和两个教学组件；不接入外部业务服务，也不需要登录。
 
+![工作区初始界面](docs/images/workspace.png)
+
 ## 在新设备上开始
 
 需要 macOS、Git、Node.js 26（也支持 Node.js 24）和 pnpm 11.25.0。Intel 与 Apple Silicon 在各自设备上安装和构建。首次安装需要联网下载 npm 依赖及对应架构的 Electron 运行时。
