@@ -49,6 +49,19 @@ describe('Feishu API and event semantics', () => {
     expect(eventRange(events.find((event) => event.id === 'all-day')!)).toBe('全天')
     expect(eventRange(events.find((event) => event.id === 'cross')!)).toContain('11/23')
   })
+  it('returns only display fields even if the API includes attendee or availability details', () => {
+    expect(
+      normalizeEvents([
+        {
+          ...timed('event', now, now + 60000),
+          summary: '日程',
+          attendees: [{ user_id: 'private-attendee' }],
+          free_busy_status: 'busy',
+          description: 'private-description',
+        },
+      ]),
+    ).toEqual([{ id: 'event', title: '日程', start: now, end: now + 60000, allDay: false }])
+  })
   it('uses eight local natural days across month boundaries', () => {
     const range = calendarRange(new Date(2026, 10, 28, 23, 59))
     expect(dateKey(new Date(range.start))).toBe('2026-11-28')

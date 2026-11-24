@@ -72,7 +72,7 @@ export function FeishuConnectionSettings({
         {connection?.identity && <strong>{connection.identity.name || '飞书用户'}</strong>}
       </div>
       <p>
-        此账号下的所有日历组件共用连接。仅读取个人主日历；凭证只保存在本机，导入账号后需要重新授权。
+        此账号下的所有日历组件共用连接，仅读取个人主日历。申请日历信息与日程读取权限，不申请成员忙闲或日程写入权限。凭证只保存在本机，导入账号后需要重新授权。
       </p>
       {connection && !connection.configured && !connecting && (
         <div className="feishu-quick-connect">
@@ -244,6 +244,9 @@ export function FeishuConnectionSettings({
         </div>
       )}
       {connection?.message && <p role="status">{connection.message}</p>}
+      <p>
+        若旧授权页提示无法开通“获取日历、日程及忙闲信息”，请关闭旧页面，在此重新发起授权。若新的日历或日程权限仍被企业策略限制，需要联系管理员审批。
+      </p>
       {error && (
         <p className="inline-error" role="alert">
           {error}

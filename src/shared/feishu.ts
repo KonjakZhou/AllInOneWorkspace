@@ -1,8 +1,11 @@
 import { z } from 'zod'
 
 export const FEISHU_REDIRECT_URI = 'http://127.0.0.1:43821/oauth/feishu/callback'
+// The primary-calendar and instance-view endpoints accept these granular scopes.
+// Do not use calendar:calendar:readonly: that bundle also grants free/busy access.
 export const FEISHU_SCOPES = [
-  'calendar:calendar:readonly',
+  'calendar:calendar.calendar:readonly',
+  'calendar:calendar.event:read',
   'contact:user.base:readonly',
   'offline_access',
 ]

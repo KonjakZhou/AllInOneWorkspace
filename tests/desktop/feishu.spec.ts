@@ -70,7 +70,17 @@ async function injectMocks() {
             : { error: 'authorization_pending' },
         )
       }
-      if (url.endsWith('/oauth/v1/device_authorization'))
+      if (url.endsWith('/oauth/v1/device_authorization')) {
+        const scopes = new URLSearchParams(String(init?.body)).get('scope')?.split(' ').sort()
+        const allowed = [
+          'calendar:calendar.calendar:readonly',
+          'calendar:calendar.event:read',
+          'contact:user.base:readonly',
+          'offline_access',
+        ].sort()
+        // Model an enterprise that allows event reads but rejects broad/busy permissions.
+        if (JSON.stringify(scopes) !== JSON.stringify(allowed))
+          return raw({ error: 'invalid_scope' })
         return raw({
           device_code: 'device-code',
           user_code: 'GRANT',
@@ -78,6 +88,7 @@ async function injectMocks() {
           interval: 1,
           verification_uri_complete: 'https://accounts.feishu.cn/confirm?code=GRANT',
         })
+      }
       if (
         url.endsWith('/oauth/v3/token') &&
         new URLSearchParams(String(init?.body)).get('grant_type') ===
@@ -165,6 +176,12 @@ async function authorize() {
     () => (globalThis as unknown as { __feishuTest: { url: string } }).__feishuTest.url,
   )
   const state = new URL(url).searchParams.get('state')!
+  expect(new URL(url).searchParams.get('scope')?.split(' ')).toEqual([
+    'calendar:calendar.calendar:readonly',
+    'calendar:calendar.event:read',
+    'contact:user.base:readonly',
+    'offline_access',
+  ])
   return async () => {
     const reply = await fetch(
       `http://127.0.0.1:43821/oauth/feishu/callback?state=${encodeURIComponent(state)}&code=fake-code`,

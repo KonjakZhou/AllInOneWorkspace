@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import { OneClickAuth } from '../electron/feishu/one-click'
-import { FEISHU_SCOPES } from '../src/shared/feishu'
 import { config, credentials, deferred, now, setupService } from './feishu-fixtures'
 import { FeishuError } from '../electron/feishu/errors'
 
@@ -52,7 +51,7 @@ describe('official app registration and device authorization', () => {
     expect(JSON.stringify(prompt.mock.calls)).not.toMatch(/private-device-code|test-secret/)
     expect(request.mock.calls[1][1]?.redirect).toBe('error')
   })
-  it('requests exactly calendar, basic identity and offline access; exchanges only after consent', async () => {
+  it('requests only granular calendar/event reads, basic identity and offline access; exchanges only after consent', async () => {
     const request = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(response(authBegin))
@@ -70,9 +69,12 @@ describe('official app registration and device authorization', () => {
     expect((request.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe(
       `Basic ${Buffer.from(`${config.appId}:${config.appSecret}`).toString('base64')}`,
     )
-    expect((request.mock.calls[0][1]!.body as URLSearchParams).get('scope')).toBe(
-      FEISHU_SCOPES.join(' '),
-    )
+    expect((request.mock.calls[0][1]!.body as URLSearchParams).get('scope')?.split(' ')).toEqual([
+      'calendar:calendar.calendar:readonly',
+      'calendar:calendar.event:read',
+      'contact:user.base:readonly',
+      'offline_access',
+    ])
     expect((request.mock.calls[1][1]!.body as URLSearchParams).get('grant_type')).toBe(
       'urn:ietf:params:oauth:grant-type:device_code',
     )

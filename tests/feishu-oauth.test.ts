@@ -30,6 +30,12 @@ describe('loopback OAuth state and lifecycle', () => {
     const auth = new URL(open.mock.calls[0][0]),
       state = auth.searchParams.get('state')!
     expect(auth.origin).toBe('https://accounts.feishu.cn')
+    expect(auth.searchParams.get('scope')?.split(' ')).toEqual([
+      'calendar:calendar.calendar:readonly',
+      'calendar:calendar.event:read',
+      'contact:user.base:readonly',
+      'offline_access',
+    ])
     expect(auth.searchParams.get('redirect_uri')).toBe(
       'http://127.0.0.1:43821/oauth/feishu/callback',
     )
