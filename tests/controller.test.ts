@@ -23,6 +23,7 @@ function setup() {
     second = snapshot('工作')
   const saved: Workspace[] = []
   const api: DesktopAPI = {
+    feishu: {} as DesktopAPI['feishu'], // Workspace persistence never calls external connections.
     load: vi.fn(async () => first),
     save: vi.fn(async (workspace) => {
       saved.push(structuredClone(workspace))

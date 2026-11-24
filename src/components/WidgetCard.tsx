@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Grip, Hash, SlidersHorizontal, Trash2, Type, RotateCw, Blocks } from 'lucide-react'
+import {
+  Grip,
+  Hash,
+  SlidersHorizontal,
+  Trash2,
+  Type,
+  RotateCw,
+  Blocks,
+  CalendarDays,
+} from 'lucide-react'
 import type { WidgetInstance } from '../shared/model'
 import { errorMessage } from '../shared/model'
 import type { AnyWidgetDefinition, WidgetContext } from '../sdk/types'
@@ -13,6 +22,8 @@ export function WidgetIcon({ icon, size = 18 }: { icon?: string; size?: number }
     <Type size={size} />
   ) : icon === 'counter' ? (
     <Hash size={size} />
+  ) : icon === 'calendar' ? (
+    <CalendarDays size={size} />
   ) : (
     <Blocks size={size} />
   )
@@ -25,6 +36,7 @@ export function WidgetCard({
   editing,
   onRemove,
   busy,
+  onOpenAccountSettings,
 }: {
   widget: WidgetInstance
   accountId: string
@@ -33,6 +45,7 @@ export function WidgetCard({
   editing: boolean
   onRemove: () => void
   busy: boolean
+  onOpenAccountSettings?: () => void
 }) {
   const [scope] = useState(() => new AbortController())
   const [settings, setSettings] = useState(false)
@@ -45,6 +58,7 @@ export function WidgetCard({
     config: widget.config,
     data: widget.data,
     signal: scope.signal,
+    openAccountSettings: () => onOpenAccountSettings?.(),
     updateConfig: (value) => {
       if (!scope.signal.aborted) {
         try {
@@ -84,53 +98,55 @@ export function WidgetCard({
   }
   return (
     <article
-      className={`widget-card accent-${definition?.accent ?? 'lavender'}`}
+      className={`widget-card accent-${definition?.accent ?? 'lavender'} ${definition?.chrome === 'compact' ? 'chrome-compact' : ''}`}
       aria-label={definition?.name ?? '未安装的组件'}
       data-instance-id={widget.id}
     >
-      <header className="widget-header">
-        <span className="widget-heading">
-          {editing ? (
-            <Grip size={16} className="drag-handle" aria-label="拖动组件" />
-          ) : (
-            <WidgetIcon icon={definition?.icon} size={15} />
-          )}
-          <span>{definition?.name ?? widget.type}</span>
-        </span>
-        <div className="widget-actions">
-          {!definition && <span className="badge">待安装</span>}
-          {definition?.refresh && (
-            <button
-              className="icon-button compact"
-              aria-label="刷新组件"
-              disabled={refreshing || busy || !!validationError}
-              onClick={() => void refresh()}
-            >
-              <RotateCw size={14} className={refreshing ? 'spin' : ''} />
-            </button>
-          )}
-          {definition?.Settings && (
-            <button
-              className="icon-button compact"
-              aria-label="组件设置"
-              disabled={busy || !!validationError}
-              onClick={() => setSettings(true)}
-            >
-              <SlidersHorizontal size={14} />
-            </button>
-          )}
-          {editing && (
-            <button
-              className="icon-button compact danger-hover"
-              aria-label="移除组件"
-              onClick={onRemove}
-              disabled={busy}
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-        </div>
-      </header>
+      {(definition?.chrome !== 'compact' || editing) && (
+        <header className="widget-header">
+          <span className="widget-heading">
+            {editing ? (
+              <Grip size={16} className="drag-handle" aria-label="拖动组件" />
+            ) : (
+              <WidgetIcon icon={definition?.icon} size={15} />
+            )}
+            <span>{definition?.name ?? widget.type}</span>
+          </span>
+          <div className="widget-actions">
+            {!definition && <span className="badge">待安装</span>}
+            {definition?.refresh && (
+              <button
+                className="icon-button compact"
+                aria-label="刷新组件"
+                disabled={refreshing || busy || !!validationError}
+                onClick={() => void refresh()}
+              >
+                <RotateCw size={14} className={refreshing ? 'spin' : ''} />
+              </button>
+            )}
+            {definition?.Settings && (
+              <button
+                className="icon-button compact"
+                aria-label="组件设置"
+                disabled={busy || !!validationError}
+                onClick={() => setSettings(true)}
+              >
+                <SlidersHorizontal size={14} />
+              </button>
+            )}
+            {editing && (
+              <button
+                className="icon-button compact danger-hover"
+                aria-label="移除组件"
+                onClick={onRemove}
+                disabled={busy}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        </header>
+      )}
       <div className="widget-content">
         <WidgetErrorBoundary>
           {validationError ? (

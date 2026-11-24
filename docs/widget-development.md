@@ -52,7 +52,7 @@ export default defineWidget({
 
 ## 配置与数据
 
-`WidgetContext` 包含 `accountId`、`instanceId`、`config`、`data`、`updateConfig`、`updateData` 和 `signal`。两个 update 方法接受完整新对象或基于前值的函数。更新是替换对应对象，若需保留其他字段请展开原对象。
+`WidgetContext` 包含 `accountId`、`instanceId`、`config`、`data`、`updateConfig`、`updateData`、`signal` 和 `openAccountSettings()`。两个 update 方法接受完整新对象或基于前值的函数。更新是替换对应对象，若需保留其他字段请展开原对象。需要配置账号连接的组件可调用 `openAccountSettings()` 打开当前账号的应用设置。
 
 不要修改传入对象，不要在模块全局保存用户数据，不要自行使用 localStorage 或硬编码账号路径。所有持久化内容通过 SDK 更新；React `useState` 只保存展开/加载等临时 UI 状态。这样，同类型多实例和多账号会天然隔离。
 
@@ -65,6 +65,12 @@ export default defineWidget({
 声明可选的 `refresh: async context => { ... }`，壳子就会提供刷新按钮、重复点击保护和错误重试。组件内部可使用 SDK 的 `WidgetLoading`、`WidgetEmpty` 和 `WidgetError`。
 
 每个实例的渲染错误由 `WidgetErrorBoundary` 隔离，可点击重试。它不会捕获任意事件处理器或后台任务抛出的错误，组件应自己处理这些异常。SDK 的数据校验失败会显示公共错误提示，原数据不被替换。
+
+## 自带标题的卡片
+
+组件声明可选的 `chrome: 'compact'`，普通模式隐藏通用标题栏，避免与组件自身标题重复。编辑模式仍提供壳子的拖拽手柄、刷新和移除控件。省略该字段或使用 `'standard'` 时保持原外观。
+
+紧凑组件需在自己的界面提供必要的设置/刷新入口，保证键盘操作和最小尺寸下的内部滚动。可参考 `src/widgets/feishu-calendar/`：纯日期展示函数、生命周期 hook、样式和声明分别维护。账号级远程服务通过明确的主进程接口访问，不把密钥或日程缓存写入 `config` / `data`。
 
 ## 升级组件数据
 

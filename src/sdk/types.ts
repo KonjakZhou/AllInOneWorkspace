@@ -11,13 +11,15 @@ export interface WidgetContext<C extends Json = Json, D extends Json = Json> {
   updateConfig: (value: Update<C>) => void
   updateData: (value: Update<D>) => void
   signal: AbortSignal
+  openAccountSettings: () => void
 }
 export interface WidgetDefinition<C extends Json = Json, D extends Json = Json> {
   type: string
   name: string
   description: string
   version: number
-  icon: 'text' | 'counter' | 'widget'
+  icon: 'text' | 'counter' | 'widget' | 'calendar'
+  chrome?: 'standard' | 'compact'
   accent: 'sage' | 'peach' | 'lavender' | 'sand'
   defaultSize: { w: number; h: number }
   minSize: { w: number; h: number }

@@ -5,6 +5,9 @@ import {
   ipcMain,
   Menu,
   session,
+  safeStorage,
+  shell,
+  powerMonitor,
   type IpcMainInvokeEvent,
 } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -14,11 +17,24 @@ import { WorkspaceStore } from './storage/workspace-store'
 import { MAX_FILE_BYTES } from './storage/json-files'
 import { errorMessage } from '../src/shared/model'
 import type { ApiResult } from '../src/shared/api'
+import { EncryptedVault } from './feishu/vault'
+import { FeishuClient } from './feishu/client'
+import { LoopbackOAuth } from './feishu/oauth'
+import { FeishuService } from './feishu/service'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 app.setName('All In One Workspace')
 if (process.env.WORKSPACE_DATA_DIR) app.setPath('userData', process.env.WORKSPACE_DATA_DIR)
 const store = new WorkspaceStore(app.getPath('userData'))
+const feishu = new FeishuService(
+  new EncryptedVault(app.getPath('userData'), safeStorage),
+  new FeishuClient((...args) => fetch(...args)),
+  new LoopbackOAuth((url) => shell.openExternal(url)),
+  (id) => store.hasAccount(id),
+  (id) => {
+    if (window && !window.isDestroyed()) window.webContents.send('feishu:changed', id)
+  },
+)
 let window: BrowserWindow | null = null
 let closeRequested = false
 let quitRequested = false
@@ -115,7 +131,16 @@ else {
     handle('account:create', (name) => store.createAccount(name))
     handle('account:rename', (id, name) => store.renameAccount(id, name))
     handle('account:switch', (id) => store.switchAccount(id))
-    handle('account:delete', (id) => store.deleteAccount(id))
+    handle('account:delete', (id) =>
+      store.deleteAccount(id, (accountId) => feishu.removeAccount(accountId)),
+    )
+    handle('feishu:connection', (id) => feishu.getConnection(id))
+    handle('feishu:config', (id, config) => feishu.saveConfig(id, config))
+    handle('feishu:authorize', (id) => feishu.authorize(id))
+    handle('feishu:cancel', (id) => feishu.cancelAuthorization(id))
+    handle('feishu:disconnect', (id) => feishu.disconnect(id))
+    handle('feishu:agenda', (id, force) => feishu.getAgenda(id, force === true))
+    powerMonitor.on('resume', () => feishu.resume())
     handle('account:export', async (id) => {
       const data = await store.exportAccount(id)
       const choice = await dialog.showSaveDialog(window!, {
@@ -192,4 +217,5 @@ else {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
   })
+  app.on('will-quit', () => feishu.dispose())
 }

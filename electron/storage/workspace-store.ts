@@ -162,7 +162,15 @@ export class WorkspaceStore {
       }
     })
   }
-  deleteAccount(id: string): Promise<Snapshot> {
+  hasAccount(id: string): Promise<boolean> {
+    return this.queue(async () =>
+      (await this.index()).accounts.some((account) => account.id === id),
+    )
+  }
+  deleteAccount(
+    id: string,
+    beforeDelete?: (accountId: string) => Promise<void>,
+  ): Promise<Snapshot> {
     return this.queue(async () => {
       const index = await this.index()
       this.requireAccount(index, id)
@@ -174,6 +182,7 @@ export class WorkspaceStore {
         activeAccountId: index.activeAccountId === id ? accounts[0].id : index.activeAccountId,
       }
       await this.workspace(next.activeAccountId)
+      await beforeDelete?.(id)
       await this.files.write(this.indexPath, next, index)
       // Deletion commits at the index. Keep its backup consistent before removing account files.
       try {

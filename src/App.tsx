@@ -26,6 +26,7 @@ import { widgetRegistry } from './widgets'
 import { WorkspaceController } from './workspace/controller'
 import { Modal } from './components/Modal'
 import { WidgetCard, WidgetIcon } from './components/WidgetCard'
+import { FeishuConnectionSettings } from './components/FeishuConnectionSettings'
 import type { Account } from './shared/model'
 import { errorMessage } from './shared/model'
 
@@ -330,6 +331,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
                         controller={controller}
                         editing={editing}
                         busy={state.busy}
+                        onOpenAccountSettings={() => setDialog('settings')}
                         onRemove={() => setDialog({ kind: 'remove-widget', id: widget.id })}
                       />
                     </div>
@@ -387,7 +389,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
       <footer className="app-footer">
         <span>
           <span className="footer-logo">◈</span> ALL IN ONE WORKSPACE{' '}
-          <span className="version-tag">v0.1.0</span>
+          <span className="version-tag">v0.2.0</span>
         </span>
         <span>
           <ShieldCheck size={12} />
@@ -460,10 +462,15 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
       {dialog === 'settings' && (
         <Modal
           title="工作区设置"
-          subtitle="把这个空间带去下一台设备。"
+          subtitle="管理当前账号的连接与数据。"
           onClose={() => setDialog(null)}
           locked={state.busy}
         >
+          <FeishuConnectionSettings
+            key={account.id}
+            accountId={account.id}
+            accountName={account.name}
+          />
           <div className="settings-section">
             <span className="eyebrow">DATA & PORTABILITY</span>
             <h3>账号迁移</h3>
@@ -505,7 +512,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             </div>
             <div>
               <strong>All In One Workspace</strong>
-              <p>版本 0.1.0 · 为你的日常，留一块空间。</p>
+              <p>版本 0.2.0 · 为你的日常，留一块空间。</p>
             </div>
           </div>
         </Modal>
