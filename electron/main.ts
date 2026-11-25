@@ -22,6 +22,10 @@ import { FeishuClient } from './feishu/client'
 import { LoopbackOAuth } from './feishu/oauth'
 import { FeishuService } from './feishu/service'
 import { OneClickAuth } from './feishu/one-click'
+import { TelegraphClient } from './telegraph/client'
+import { TelegraphHistoryCache } from './telegraph/history-cache'
+import { TelegraphService } from './telegraph/service'
+import { telegraphCursorSchema, telegraphItemIdSchema } from '../src/shared/telegraph'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 app.setName('All In One Workspace')
@@ -40,6 +44,14 @@ const feishu = new FeishuService(
     (url) => shell.openExternal(url),
     (...args) => fetch(...args),
   ),
+)
+const telegraph = new TelegraphService(
+  new TelegraphClient((...args) => fetch(...args)),
+  () => {
+    if (window && !window.isDestroyed()) window.webContents.send('telegraph:changed')
+  },
+  Date.now,
+  new TelegraphHistoryCache(join(store.directory, 'cache', 'cls-telegraph-v1')),
 )
 let window: BrowserWindow | null = null
 let closeRequested = false
@@ -148,7 +160,17 @@ else {
     handle('feishu:cancel', (id) => feishu.cancelAuthorization(id))
     handle('feishu:disconnect', (id) => feishu.disconnect(id))
     handle('feishu:agenda', (id, force) => feishu.getAgenda(id, force === true))
-    powerMonitor.on('resume', () => feishu.resume())
+    handle('telegraph:feed', (force) => telegraph.getFeed(force === true))
+    telegraph.startMaintenance()
+    handle('telegraph:older', (cursor) => telegraph.loadOlder(telegraphCursorSchema.parse(cursor)))
+    handle('telegraph:open', async (input) => {
+      const id = telegraphItemIdSchema.parse(input)
+      await shell.openExternal(`https://www.cls.cn/detail/${id}`)
+    })
+    powerMonitor.on('resume', () => {
+      feishu.resume()
+      telegraph.resume()
+    })
     handle('account:export', async (id) => {
       const data = await store.exportAccount(id)
       const choice = await dialog.showSaveDialog(window!, {
@@ -225,5 +247,8 @@ else {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
   })
-  app.on('will-quit', () => feishu.dispose())
+  app.on('will-quit', () => {
+    feishu.dispose()
+    telegraph.dispose()
+  })
 }

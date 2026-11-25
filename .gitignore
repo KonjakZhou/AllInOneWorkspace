@@ -12,3 +12,14 @@ playwright-report/
 !.env.example
 .local-data/
 .pnpm-store/
+
+# Local account data, credentials, exports and recovery files are not source.
+/accounts/
+/accounts.json
+/accounts.json.bak
+/connections/
+/cache/
+/workspace-*.json
+*.corrupt-*
+*.pem
+*.key

@@ -63,6 +63,38 @@ test('desktop lifecycle: edit, drag, resize, isolate accounts, close and restore
   await add('文本卡片')
   await add('计数器')
   await add('计数器')
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(1100, 720),
+  )
+  await expect.poll(() => page.evaluate(() => innerHeight)).toBe(720)
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const titlebar = document.querySelector<HTMLElement>('.titlebar')!
+        const style = getComputedStyle(titlebar)
+        return {
+          scrolled: scrollY > 0,
+          top: titlebar.getBoundingClientRect().top,
+          height: titlebar.getBoundingClientRect().height,
+          position: style.position,
+          background: style.backgroundColor,
+        }
+      }),
+    )
+    .toEqual({
+      scrolled: true,
+      top: 0,
+      height: 52,
+      position: 'sticky',
+      background: 'rgba(244, 243, 239, 0.92)',
+    })
+  await page.screenshot({ path: 'test-results/workspace-titlebar-safe-area.png' })
+  await page.evaluate(() => scrollTo(0, 0))
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(1440, 960),
+  )
+  await expect.poll(() => page.evaluate(() => innerHeight)).toBeGreaterThan(900)
   const text = page.getByRole('article', { name: '文本卡片', exact: true })
   const counters = page.getByRole('article', { name: '计数器', exact: true })
   await counters.nth(0).getByRole('button', { name: '增加计数' }).click({ clickCount: 3 })
@@ -126,6 +158,38 @@ test('desktop lifecycle: edit, drag, resize, isolate accounts, close and restore
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
   await page.screenshot({ path: 'test-results/workspace-minimum-window.png', fullPage: true })
+  expect(errors).toEqual([])
+})
+
+test('dragging over a card aligns the occupied card with the dragged lower edge', async () => {
+  await add('文本卡片')
+  await add('计数器')
+  const movingCard = page.getByRole('article', { name: '文本卡片', exact: true })
+  const occupiedCard = page.getByRole('article', { name: '计数器', exact: true })
+  await page.getByRole('button', { name: '编辑布局', exact: true }).click()
+  const movingHandle = movingCard.locator('.drag-handle')
+  const occupiedHandle = occupiedCard.locator('.drag-handle')
+  const startBox = (await movingHandle.boundingBox())!
+  const targetBox = (await occupiedHandle.boundingBox())!
+  await page.mouse.move(startBox.x + startBox.width / 2, startBox.y + startBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+    steps: 20,
+  })
+  await page.mouse.up()
+
+  await expect
+    .poll(async () => {
+      const [moving, occupied] = (await readWorkspace()).widgets
+      if (!moving || !occupied) return null
+      return {
+        movingX: moving.layout.x,
+        occupiedX: occupied.layout.x,
+        gap: occupied.layout.y - (moving.layout.y + moving.layout.h),
+      }
+    })
+    .toEqual({ movingX: 4, occupiedX: 4, gap: 0 })
+  await expect(page.getByRole('alert')).toHaveCount(0)
   expect(errors).toEqual([])
 })
 

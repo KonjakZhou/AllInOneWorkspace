@@ -11,7 +11,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 21px 17px 10px;
+  padding: 21px 17px 0;
   color: #253731;
   container-type: inline-size;
 }
@@ -308,16 +308,11 @@
   margin-bottom: 8px;
 }
 .calendar-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 6px;
-  font-size: 9px;
-  color: #9ba293;
-  flex-shrink: 0;
-}
-.calendar-footer > div {
-  display: flex;
+  --widget-scroll-footer-extra-width: 34px;
+  --widget-scroll-footer-inline-margin: -17px;
+  --widget-scroll-footer-border: rgba(132, 114, 66, 0.13);
+  --widget-scroll-footer-color: #958d78;
+  --widget-scroll-footer-background: rgba(250, 246, 229, 0.92);
 }
 .feishu-identity {
   display: flex;

@@ -1,5 +1,13 @@
-import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
-import GridLayout, { useContainerWidth, noCompactor, type Layout } from 'react-grid-layout'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
+import GridLayout, { useContainerWidth, type Compactor, type Layout } from 'react-grid-layout'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -19,6 +27,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { version } from '../package.json'
 import { widgetRegistry } from './widgets'
 import { WorkspaceController } from './workspace/controller'
 import { Modal } from './components/Modal'
@@ -28,6 +37,7 @@ import { RemoveWidgetDialog } from './components/RemoveWidgetDialog'
 import { FeishuConnectionSettings } from './components/FeishuConnectionSettings'
 import type { Account } from './shared/model'
 import { errorMessage } from './shared/model'
+import { alignDisplacedCards } from './workspace/layout'
 
 const api = window.workspace
 const controller = api ? new WorkspaceController(api, widgetRegistry) : null
@@ -55,6 +65,20 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getState)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [editing, setEditing] = useState(false)
+  const dragOrigin = useRef<{ id: string; layout: Layout } | null>(null)
+  const displacementCompactor = useMemo<Compactor>(
+    () => ({
+      type: null,
+      allowOverlap: false,
+      compact(next) {
+        const origin = dragOrigin.current
+        return origin
+          ? alignDisplacedCards(next, origin.layout, origin.id)
+          : next.map((item) => ({ ...item }))
+      },
+    }),
+    [],
+  )
   useEffect(() => {
     // Modal restoration must know the input method even if :focus-visible is still sticky.
     const root = document.documentElement
@@ -327,8 +351,18 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
                   }}
                   dragConfig={{ enabled: editing && !state.busy, handle: '.drag-handle' }}
                   resizeConfig={{ enabled: editing && !state.busy, handles: ['se'] }}
-                  compactor={noCompactor}
-                  onDragStop={commitLayout}
+                  compactor={displacementCompactor}
+                  onDragStart={(current, _oldItem, item) => {
+                    if (item)
+                      dragOrigin.current = {
+                        id: item.i,
+                        layout: current.map((entry) => ({ ...entry })),
+                      }
+                  }}
+                  onDragStop={(next) => {
+                    dragOrigin.current = null
+                    commitLayout(next)
+                  }}
                   onResizeStop={commitLayout}
                 >
                   {widgets.map((widget) => (
@@ -359,7 +393,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
       <footer className="app-footer">
         <span>
           <span className="footer-logo">◈</span> ALL IN ONE WORKSPACE{' '}
-          <span className="version-tag">v0.4.0</span>
+          <span className="version-tag">v{version}</span>
         </span>
         <span>
           <ShieldCheck size={12} />
@@ -448,7 +482,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
             </div>
             <div>
               <strong>All In One Workspace</strong>
-              <p>版本 0.4.0 · 为你的日常，留一块空间。</p>
+              <p>版本 {version} · 为你的日常，留一块空间。</p>
             </div>
           </div>
         </Modal>

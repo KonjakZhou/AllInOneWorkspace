@@ -221,9 +221,10 @@ test.afterEach(async () => {
   await rm(directory, { recursive: true, force: true })
 })
 
-test('calendar settings restore pointer focus without a ring while preserving keyboard focus visibility', async () => {
+test('workspace settings restore pointer focus without a ring while preserving keyboard focus visibility', async () => {
   await add()
-  const settings = page.getByRole('button', { name: '日历连接设置', exact: true })
+  await expect(page.getByRole('button', { name: '日历连接设置', exact: true })).toHaveCount(0)
+  const settings = page.getByRole('button', { name: '应用设置', exact: true })
   const state = () =>
     settings.evaluate((el) => ({
       focused: document.activeElement === el,
@@ -393,6 +394,7 @@ test('calendar shows relative tags and hover details with rooms, keyboard access
   await page.getByRole('button', { name: '关闭对话框' }).click()
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1100, 720))
   const card = page.getByRole('article', { name: '飞书日历', exact: true })
+  await expect(card.locator('.widget-scroll-footer')).toContainText(/更新于 \d{2}:\d{2}:\d{2}/)
   const tags = await card.locator('.calendar-event-tag').allTextContents()
   expect(tags).toContain('TODAY')
   expect(tags).toContain('NEXT')

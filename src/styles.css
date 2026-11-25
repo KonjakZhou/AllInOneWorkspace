@@ -93,7 +93,11 @@ button svg {
     32px 32px;
 }
 .titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   height: 52px;
+  flex-shrink: 0;
   padding: 0 29px 0 104px;
   display: flex;
   align-items: center;
@@ -101,6 +105,8 @@ button svg {
   font-size: 9px;
   letter-spacing: 1.65px;
   color: #90988d;
+  background: rgba(244, 243, 239, 0.92);
+  backdrop-filter: blur(14px);
   font-weight: 600;
   -webkit-app-region: drag;
   user-select: none;
@@ -763,6 +769,40 @@ button svg {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+.widget-scroll-footer {
+  display: flex;
+  width: calc(100% + var(--widget-scroll-footer-extra-width, 0px));
+  height: 34px;
+  min-height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-inline: var(--widget-scroll-footer-inline-margin, 0);
+  padding: 0 14px 0 18px;
+  border-top: 1px solid var(--widget-scroll-footer-border, var(--line));
+  color: var(--widget-scroll-footer-color, var(--muted));
+  background: var(--widget-scroll-footer-background, transparent);
+  font:
+    600 9px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.1px;
+  font-variant-numeric: tabular-nums;
+}
+.widget-scroll-footer-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.widget-scroll-footer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
 }
 .widget-boundary {
   height: 100%;

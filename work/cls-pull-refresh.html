@@ -1,0 +1,218 @@
+<div
+  id="cls-pull-refresh-preview"
+  class="viz-dotted-background"
+  aria-label="财联社顶部下拉刷新示意"
+>
+  <section class="pull-preview" aria-label="财联社 7×24">
+    <header class="pull-preview-header">
+      <h3>财联社 7×24</h3>
+      <span class="pull-preview-tabs"><strong>全部</strong><span>重点</span></span>
+    </header>
+    <div class="pull-preview-tray" data-phase="armed">
+      <div class="pull-preview-prompt">
+        <i data-lucide="arrow-down" class="pull-preview-arrow" aria-hidden="true"></i>
+        <i data-lucide="rotate-cw" class="pull-preview-spinner" aria-hidden="true"></i>
+        <span role="status">松手刷新快讯</span>
+      </div>
+    </div>
+    <ul class="pull-preview-items">
+      <li>
+        <time>20:06</time><span><b>B</b>市场晚间要闻汇总</span>
+      </li>
+      <li>
+        <time>20:02</time><span><b>C</b>行业最新公告速览</span>
+      </li>
+      <li>
+        <time>19:56</time><span><b>C</b>盘后公司动态</span>
+      </li>
+    </ul>
+  </section>
+  <button class="pull-preview-replay cursor-interaction" type="button">
+    <i data-lucide="play" aria-hidden="true"></i>
+    播放下拉动效
+  </button>
+</div>
+<style>
+  #cls-pull-refresh-preview {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    padding: 20px 12px 12px;
+    color-scheme: light dark;
+    font-family: system-ui, sans-serif;
+    --pull-surface: light-dark(#fffdf9, #2b2421);
+    --pull-text: light-dark(#30251f, #f7e9e1);
+    --pull-muted: light-dark(#81685e, #d0aba0);
+    --pull-line: light-dark(#e9dbd4, #55443b);
+    --pull-red: light-dark(#a82e26, #ffb3a7);
+    --pull-tint: light-dark(#fdf0e8, #462c26);
+  }
+  #cls-pull-refresh-preview .pull-preview {
+    width: min(100%, 390px);
+    box-sizing: border-box;
+    min-height: 260px;
+    overflow: hidden;
+    border: 1px solid var(--pull-line);
+    border-radius: 14px;
+    background: var(--pull-surface);
+    color: var(--pull-text);
+  }
+  #cls-pull-refresh-preview .pull-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--pull-line);
+  }
+  #cls-pull-refresh-preview h3 {
+    font:
+      600 17px Georgia,
+      'Songti SC',
+      serif;
+  }
+  #cls-pull-refresh-preview .pull-preview-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--pull-muted);
+  }
+  #cls-pull-refresh-preview .pull-preview-tabs strong {
+    color: var(--pull-red);
+  }
+  #cls-pull-refresh-preview .pull-preview-tray {
+    display: grid;
+    align-items: end;
+    overflow: hidden;
+    height: 72px;
+    color: var(--pull-red);
+    background: linear-gradient(var(--pull-tint), transparent);
+    transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #cls-pull-refresh-preview .pull-preview-tray[data-phase='idle'] {
+    height: 0;
+  }
+  #cls-pull-refresh-preview .pull-preview-tray[data-phase='pulling'] {
+    height: 36px;
+  }
+  #cls-pull-refresh-preview .pull-preview-tray[data-phase='refreshing'] {
+    height: 42px;
+  }
+  #cls-pull-refresh-preview .pull-preview-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 36px;
+    font-size: 12px;
+  }
+  #cls-pull-refresh-preview .pull-preview-prompt svg,
+  #cls-pull-refresh-preview button svg {
+    width: 15px;
+    height: 15px;
+  }
+  #cls-pull-refresh-preview .pull-preview-arrow {
+    transition: transform 170ms ease;
+  }
+  #cls-pull-refresh-preview [data-phase='armed'] .pull-preview-arrow {
+    transform: rotate(180deg);
+  }
+  #cls-pull-refresh-preview [data-phase='refreshing'] .pull-preview-arrow,
+  #cls-pull-refresh-preview .pull-preview-spinner {
+    display: none;
+  }
+  #cls-pull-refresh-preview [data-phase='refreshing'] .pull-preview-spinner {
+    display: block;
+    animation: cls-preview-spin 850ms linear infinite;
+  }
+  #cls-pull-refresh-preview .pull-preview-items {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  #cls-pull-refresh-preview .pull-preview-items li {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 10px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--pull-line);
+    font-size: 13px;
+  }
+  #cls-pull-refresh-preview time {
+    color: var(--pull-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  #cls-pull-refresh-preview .pull-preview-items b {
+    display: inline-block;
+    min-width: 17px;
+    margin-right: 6px;
+    border-radius: 3px;
+    color: var(--pull-muted);
+    background: var(--pull-tint);
+    text-align: center;
+    font-size: 11px;
+  }
+  #cls-pull-refresh-preview .pull-preview-items li:first-child b {
+    color: var(--pull-red);
+  }
+  #cls-pull-refresh-preview .pull-preview-replay {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 7px;
+    padding: 0 14px;
+    border: 1px solid var(--pull-line);
+    border-radius: 8px;
+    color: var(--pull-text);
+    background: var(--pull-surface);
+    font:
+      500 13px system-ui,
+      sans-serif;
+  }
+  @keyframes cls-preview-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #cls-pull-refresh-preview .pull-preview-tray,
+    #cls-pull-refresh-preview .pull-preview-arrow {
+      transition: none;
+    }
+    #cls-pull-refresh-preview [data-phase='refreshing'] .pull-preview-spinner {
+      animation: none;
+    }
+  }
+</style>
+<script>
+  ;(() => {
+    const root = document.getElementById('cls-pull-refresh-preview')
+    const tray = root.querySelector('.pull-preview-tray')
+    const label = tray.querySelector('[role="status"]')
+    const replay = root.querySelector('button')
+    const show = (phase, text) => {
+      tray.dataset.phase = phase
+      tray.setAttribute('aria-hidden', String(phase === 'idle'))
+      label.textContent = text
+    }
+    const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+    replay.addEventListener('click', async () => {
+      if (replay.getAttribute('aria-disabled') === 'true') return
+      replay.setAttribute('aria-disabled', 'true')
+      show('idle', '')
+      await pause(280)
+      show('pulling', '下拉刷新快讯')
+      await pause(400)
+      show('armed', '松手刷新快讯')
+      await pause(520)
+      show('refreshing', '正在刷新快讯')
+      await pause(740)
+      show('idle', '')
+      await pause(520)
+      show('armed', '松手刷新快讯')
+      replay.removeAttribute('aria-disabled')
+    })
+  })()
+</script>

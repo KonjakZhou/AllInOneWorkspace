@@ -2,6 +2,8 @@
 
 最短路径：复制 `src/widgets/counter/` 为一个新目录，修改 `widget.tsx` 中的 `type`、名称、Schema 和界面。声明文件保持为 `widget.tsx`，构建时自动注册，无需改壳子代码。新增目录后重启 `pnpm dev`，或重新打包应用。
 
+带内部上下滚动区域并固定展示状态栏的组件，应复用 `WidgetScrollFooter`。共享规格统一页脚高度、内边距、上边界、字体、操作按钮布局和 `HH:mm:ss` 更新时间格式。组件通过 CSS 变量提供与自身主题一致的边界、文字和背景颜色。
+
 ## 最小例子
 
 在 `src/widgets/greeting/widget.tsx` 中写入：

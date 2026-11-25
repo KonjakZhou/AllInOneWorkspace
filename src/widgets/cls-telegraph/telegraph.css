@@ -1,0 +1,462 @@
+.cls-telegraph {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  color: #27231f;
+  background: radial-gradient(circle at 92% 4%, rgba(214, 55, 45, 0.09), transparent 28%), #fffdf9;
+}
+
+.telegraph-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px 18px 13px;
+  border-bottom: 1px solid rgba(71, 53, 44, 0.1);
+}
+
+.telegraph-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.telegraph-brand > div {
+  min-width: 0;
+}
+
+.telegraph-brand span:not(.telegraph-live) {
+  display: block;
+  overflow: hidden;
+  color: #9a766b;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.telegraph-brand h3 {
+  margin: 2px 0 0;
+  font-family: Georgia, 'Songti SC', serif;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.telegraph-live {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #d9362b;
+  box-shadow: 0 0 0 4px rgba(217, 54, 43, 0.12);
+}
+
+.telegraph-live.is-stale {
+  background: #b49b8d;
+  box-shadow: 0 0 0 4px rgba(180, 155, 141, 0.14);
+}
+
+.telegraph-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 2px;
+  border: 1px solid rgba(71, 53, 44, 0.12);
+  border-radius: 999px;
+  background: rgba(91, 70, 58, 0.04);
+}
+
+.telegraph-tabs button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  color: #927d71;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.telegraph-tabs button.active {
+  color: #a92720;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(68, 43, 32, 0.12);
+}
+
+.telegraph-notice {
+  padding: 7px 18px;
+  color: #805f50;
+  background: #fff2e7;
+  font-size: 11px;
+}
+
+.telegraph-stream {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.telegraph-jump {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #c83229;
+  box-shadow: 0 5px 14px rgba(164, 47, 40, 0.24);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.telegraph-jump:disabled {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+.telegraph-newer-status {
+  position: absolute;
+  z-index: 1;
+  top: 40px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  padding: 4px 9px;
+  border-radius: 6px;
+  color: #805f50;
+  background: #fff2e7;
+  pointer-events: none;
+  font-size: 11px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.telegraph-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.telegraph-pull {
+  display: grid;
+  flex: 0 0 auto;
+  align-items: end;
+  overflow: hidden;
+  color: #9a5a4c;
+  background: linear-gradient(#fdf3ed, transparent);
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.telegraph-pull[data-phase='dragging'] {
+  transition: height 65ms ease-out;
+}
+
+.telegraph-pull-inner {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.telegraph-pull[data-phase='dragging'] svg {
+  transition: transform 170ms ease;
+}
+
+.telegraph-pull[data-armed='true'] {
+  color: #b62f26;
+}
+
+.telegraph-pull[data-armed='true'] svg {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telegraph-pull,
+  .telegraph-pull[data-phase='dragging'],
+  .telegraph-pull[data-phase='dragging'] svg {
+    transition: none;
+  }
+
+  .cls-telegraph .spin,
+  .telegraph-loading-dots i {
+    animation: none;
+  }
+}
+
+.telegraph-item {
+  border-bottom: 1px solid rgba(71, 53, 44, 0.08);
+  transition: background 180ms ease;
+}
+
+.telegraph-item.is-important {
+  background: rgba(219, 76, 58, 0.025);
+}
+
+.telegraph-item.is-new {
+  animation: telegraph-arrival 1.8s ease-out;
+}
+
+@keyframes telegraph-arrival {
+  from {
+    background: rgba(224, 68, 52, 0.16);
+  }
+}
+
+.telegraph-item-summary {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 9px;
+  padding: 11px 18px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.telegraph-item-summary:hover {
+  background: rgba(122, 84, 62, 0.035);
+}
+
+.telegraph-item-summary time {
+  padding-top: 2px;
+  color: #a58e80;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.telegraph-item-summary > span {
+  font-size: 12px;
+  font-weight: 580;
+  line-height: 1.55;
+}
+
+.telegraph-item-summary b {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 5px;
+  border-radius: 3px;
+  color: #b42f27;
+  background: #ffe7e0;
+  font-size: 9px;
+  line-height: 17px;
+  vertical-align: 1px;
+}
+
+.telegraph-level {
+  display: inline-flex;
+  min-width: 18px;
+  height: 17px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 5px;
+  border: 1px solid #c7b9af;
+  border-radius: 4px;
+  color: #8c7c72;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: 1px;
+}
+
+.telegraph-level.level-a {
+  border-color: #d83b32;
+  color: #fff;
+  background: #d83b32;
+}
+
+.telegraph-level.level-b {
+  border-color: #e78845;
+  color: #a94b20;
+  background: #fff0df;
+}
+
+.telegraph-level.level-c {
+  border-color: #c7b9af;
+  color: #7e7068;
+  background: #f6f1ed;
+}
+
+.telegraph-detail {
+  margin: -3px 18px 12px 75px;
+  padding: 10px 12px;
+  border-left: 2px solid #dc7165;
+  border-radius: 0 7px 7px 0;
+  background: #fbf5ef;
+}
+
+.telegraph-detail p {
+  margin: 0;
+  color: #5f5149;
+  font-size: 11px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.telegraph-detail > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  color: #ad332b;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.telegraph-subjects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.telegraph-subjects span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #876e60;
+  background: #eee4db;
+  font-size: 9px;
+}
+
+.telegraph-empty {
+  display: flex;
+  min-height: 190px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 26px;
+  color: #9c877a;
+  text-align: center;
+}
+
+.telegraph-empty strong {
+  margin-top: 10px;
+  color: #5b4c44;
+  font-size: 13px;
+}
+
+.telegraph-empty p {
+  max-width: 240px;
+  margin: 6px 0 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.telegraph-history-loader {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  color: #9b8174;
+  background: linear-gradient(to bottom, rgba(255, 253, 249, 0), rgba(246, 237, 229, 0.62));
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.telegraph-history-loader:hover:not(:disabled) {
+  color: #b73830;
+  background: rgba(246, 237, 229, 0.78);
+}
+
+.telegraph-history-loader:disabled {
+  cursor: wait;
+}
+
+.telegraph-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.telegraph-loading-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #cf493f;
+  animation: telegraph-loading-dot 900ms ease-in-out infinite;
+}
+
+.telegraph-loading-dots i:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.telegraph-loading-dots i:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes telegraph-loading-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.telegraph-history-end {
+  padding: 14px 18px 16px;
+  color: #ae9a8f;
+  background: linear-gradient(to bottom, transparent, rgba(246, 237, 229, 0.5));
+  font-size: 9px;
+  text-align: center;
+}
+
+.telegraph-footer {
+  --widget-scroll-footer-border: rgba(71, 53, 44, 0.09);
+  --widget-scroll-footer-color: #9a887d;
+  --widget-scroll-footer-background: rgba(251, 247, 242, 0.92);
+}
+
+@media (max-width: 1180px) {
+  .telegraph-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .telegraph-item-summary {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+  .telegraph-detail {
+    margin-left: 64px;
+  }
+}

@@ -8,7 +8,12 @@ import type { WidgetInstance } from '../src/shared/model'
 describe('component contract', () => {
   it('discovers definitions by filename without a hand-maintained list', () => {
     expect([...widgetRegistry.keys()]).toEqual(
-      expect.arrayContaining(['starter.counter', 'starter.text', 'feishu.calendar']),
+      expect.arrayContaining([
+        'starter.counter',
+        'starter.text',
+        'feishu.calendar',
+        'news.cls-telegraph',
+      ]),
     )
   })
   it('rejects duplicate IDs, invalid sizes and invalid defaults early', () => {

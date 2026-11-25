@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CalendarDays, RotateCw, Settings2 } from 'lucide-react'
+import { CalendarDays, RotateCw } from 'lucide-react'
 import { defineWidget, type WidgetContext } from '../../sdk/types'
 import { dateKey } from '../../shared/feishu'
 import {
@@ -13,6 +13,7 @@ import {
 } from './presentation'
 import { CalendarEventRow } from './event-row'
 import { useAgenda } from './use-agenda'
+import { WidgetScrollFooter } from '../../components/WidgetScrollFooter'
 import './calendar.css'
 
 function Calendar({
@@ -171,30 +172,21 @@ function Calendar({
           </>
         )}
       </div>
-      <footer className="calendar-footer">
-        <span>
-          {agenda?.updatedAt && ready
-            ? `${agenda.stale ? '上次更新' : '更新于'} ${clockTime(agenda.updatedAt)}`
-            : '个人主日历 · 只读'}
-        </span>
-        <div>
-          <button
-            className="icon-button compact"
-            aria-label="刷新飞书日历"
-            disabled={loading || !ready}
-            onClick={() => void refresh()}
-          >
-            <RotateCw size={13} className={loading ? 'spin' : ''} />
-          </button>
-          <button
-            className="icon-button compact"
-            aria-label="日历连接设置"
-            onClick={openAccountSettings}
-          >
-            <Settings2 size={13} />
-          </button>
-        </div>
-      </footer>
+      <WidgetScrollFooter
+        className="calendar-footer"
+        updatedAt={ready ? agenda?.updatedAt : null}
+        stale={agenda?.stale}
+        fallback="个人主日历 · 只读"
+      >
+        <button
+          className="icon-button compact"
+          aria-label="刷新飞书日历"
+          disabled={loading || !ready}
+          onClick={() => void refresh()}
+        >
+          <RotateCw size={13} className={loading ? 'spin' : ''} />
+        </button>
+      </WidgetScrollFooter>
     </div>
   )
 }

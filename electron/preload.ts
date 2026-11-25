@@ -7,6 +7,18 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return result.value
 }
 const api: DesktopAPI = {
+  telegraph: {
+    getFeed: (force) => invoke('telegraph:feed', force === true),
+    loadOlder: (cursor) => invoke('telegraph:older', cursor),
+    openItem: (id) => invoke('telegraph:open', id),
+    onChanged: (callback) => {
+      const listener = () => callback()
+      ipcRenderer.on('telegraph:changed', listener)
+      return () => {
+        ipcRenderer.removeListener('telegraph:changed', listener)
+      }
+    },
+  },
   feishu: {
     connect: (id) => invoke('feishu:connect', id),
     reopenAuthorization: (id) => invoke('feishu:reopen', id),
