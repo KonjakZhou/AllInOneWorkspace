@@ -7,6 +7,14 @@
 - Define cache keys, account or permission scope, expiry, size limits, and cleanup when adding a cache. Keep rebuildable caches separate from workspace data, backups, and exports. Respect each source's rules for what may be persisted. For example, Feishu calendar content stays in memory. Credentials use their own protected storage.
 - Authorization and remote writes are live operations. Reuse local state where applicable and confirm the outcome with the source.
 
+## Frontend visual consistency
+
+- New widgets, components, controls, dialogs, settings, cards, empty states, and other frontend elements must fit the application's established global visual and interaction language. Before implementing them, inspect the global styles and the closest existing UI patterns rather than designing the feature in isolation.
+- Reuse existing design tokens, shared primitives, CSS classes, and conventions for color, typography, spacing, sizing, borders, radii, shadows, icons, motion, content density, and visual hierarchy. Avoid one-off hard-coded values or a separate visual system when an established pattern can express the design.
+- Match the surrounding UI's interaction states and behavior, including hover, focus-visible, active, selected, disabled, loading, empty, error, and success states where applicable. Preserve keyboard access, visible focus, readable contrast, and the window-size behavior already expected by the application.
+- When a genuinely new visual pattern is necessary, extend the global style system or a reusable shared primitive first, then consume it from the feature. Keep the extension compatible with existing screens and document or test the new convention when future components are expected to reuse it.
+- Verify frontend additions in their real application context and at the relevant supported window sizes. Treat a feature as incomplete if it functions correctly but is visually inconsistent with the rest of the application.
+
 ## Runnable app artifact
 
 - After every task that modifies project files, build a runnable macOS app artifact containing the completed changes before reporting the task as finished. Use `pnpm dist` unless the task establishes a more appropriate packaging command.
