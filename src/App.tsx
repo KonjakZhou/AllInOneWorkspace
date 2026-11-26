@@ -1,5 +1,7 @@
 import {
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -40,6 +42,9 @@ import { FeishuConnectionSettings } from './components/FeishuConnectionSettings'
 import type { Account } from './shared/model'
 import { errorMessage } from './shared/model'
 import { alignDisplacedCards } from './workspace/layout'
+import type { IdeaView } from './shared/trading-ideas'
+import IdeasPage from './trading-ideas/IdeasPage'
+import { OpenIdeasPage } from './trading-ideas/navigation'
 
 const api = window.workspace
 const controller = api ? new WorkspaceController(api, widgetRegistry) : null
@@ -61,7 +66,67 @@ export default function App() {
         <p>这个工作区需要本地桌面服务。请使用 pnpm dev 启动应用。</p>
       </div>
     )
-  return <WorkspaceApp controller={controller} />
+  return <WorkspaceNavigation controller={controller} />
+}
+
+function WorkspaceNavigation({ controller }: { controller: WorkspaceController }) {
+  const [selection, setSelection] = useState<IdeaView | null>(null)
+  const returnPoint = useRef<{ trigger: HTMLButtonElement; x: number; y: number } | null>(null)
+  const accountId = useSyncExternalStore(
+    controller.subscribe,
+    () => controller.getState().snapshot?.index.activeAccountId,
+  )
+  const view = selection?.accountId === accountId ? selection : null
+
+  const open = useCallback((next: IdeaView, trigger: HTMLButtonElement) => {
+    returnPoint.current = { trigger, x: window.scrollX, y: window.scrollY }
+    setSelection(next)
+  }, [])
+
+  useLayoutEffect(() => {
+    if (view) {
+      const root = document.documentElement
+      const oldOverflow = root.style.overflow
+      root.style.overflow = 'hidden'
+      return () => {
+        root.style.overflow = oldOverflow
+      }
+    }
+    if (selection) setSelection(null)
+    const previous = returnPoint.current
+    if (!previous) return
+    returnPoint.current = null
+    window.scrollTo({ left: previous.x, top: previous.y, behavior: 'instant' })
+    if (previous.trigger.isConnected) previous.trigger.focus({ preventScroll: true })
+  }, [selection, view])
+
+  return (
+    <OpenIdeasPage.Provider value={open}>
+      <div className={view ? 'workspace-behind-ideas' : undefined} inert={Boolean(view)}>
+        <WorkspaceApp controller={controller} />
+      </div>
+      {view && (
+        <div className="ideas-screen">
+          <WorkspaceTitlebar />
+          <IdeasPage key={view.accountId} view={view} onBack={() => setSelection(null)} />
+        </div>
+      )}
+    </OpenIdeasPage.Provider>
+  )
+}
+
+function WorkspaceTitlebar() {
+  return (
+    <div className="titlebar">
+      <span>
+        ALL IN ONE <span className="titlebar-divider">/</span> YOUR PERSONAL SPACE
+      </span>
+      <span className="local-indicator">
+        <i />
+        LOCAL FIRST
+      </span>
+    </div>
+  )
 }
 
 function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
@@ -169,15 +234,7 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
   const commitLayout = (next: Layout) => local(() => controller.setLayout([...next]))
   return (
     <div className="app-shell">
-      <div className="titlebar">
-        <span>
-          ALL IN ONE <span className="titlebar-divider">/</span> YOUR PERSONAL SPACE
-        </span>
-        <span className="local-indicator">
-          <i />
-          LOCAL FIRST
-        </span>
-      </div>
+      <WorkspaceTitlebar />
       {updateState?.phase === 'ready' && updateState.version !== dismissedUpdate && (
         <aside className="update-banner" role="status">
           <span>

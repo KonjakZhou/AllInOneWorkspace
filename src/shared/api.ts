@@ -1,12 +1,14 @@
 import type { Snapshot, Workspace } from './model'
 import type { FeishuAPI } from './feishu'
 import type { TelegraphAPI } from './telegraph'
+import type { TradingIdeasAPI } from './trading-ideas'
 import type { UpdatesAPI } from './updates'
 
 export interface DesktopAPI {
   updates: UpdatesAPI
   feishu: FeishuAPI
   telegraph: TelegraphAPI
+  tradingIdeas: TradingIdeasAPI
   load(): Promise<Snapshot>
   save(workspace: Workspace): Promise<void>
   createAccount(name: string): Promise<Snapshot>

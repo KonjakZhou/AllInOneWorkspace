@@ -26,6 +26,7 @@ function setup() {
     updates: {} as DesktopAPI['updates'],
     feishu: {} as DesktopAPI['feishu'], // Workspace persistence never calls external connections.
     telegraph: {} as DesktopAPI['telegraph'], // Workspace persistence never calls public news.
+    tradingIdeas: {} as DesktopAPI['tradingIdeas'],
     load: vi.fn(async () => first),
     save: vi.fn(async (workspace) => {
       saved.push(structuredClone(workspace))
