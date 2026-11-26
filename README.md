@@ -2,16 +2,16 @@
 
 一个属于你自己的 macOS 桌面工作区。自由摆放卡片，为不同账号保留不同布局，所有内容保存在本地。
 
-当前版本：**1.0.0**。Electron + React + TypeScript + Vite。提供完整工作区壳子、账号管理、两个教学组件、飞书日历和财联社快讯。本地账号无需登录；飞书连接通过系统浏览器单独授权。
+当前版本：**1.1.2**。Electron + React + TypeScript + Vite。提供完整工作区壳子、账号管理、两个教学组件、飞书日历和财联社快讯。本地账号无需登录；飞书连接通过系统浏览器单独授权。
 
 ![工作区初始界面](docs/images/workspace.png)
 
 ## 在新设备上开始
 
-需要 macOS、Git、Node.js 26（也支持 Node.js 24）和 pnpm 11.25.0。Intel 与 Apple Silicon 在各自设备上安装和构建。首次安装需要联网下载 npm 依赖及对应架构的 Electron 运行时。
+需要 macOS 13+、Git、Node.js 26（也支持 Node.js 24）和 pnpm 11.25.0。当前打包及自动更新支持 Apple Silicon；打包还需免费的 Xcode Command Line Tools。Intel 待后续验证。首次安装需要联网下载 npm 依赖及 Electron 运行时。
 
 ```sh
-git clone <你的仓库地址> AllInOneWorkspace
+git clone https://github.com/KonjakZhou/AllInOneWorkspace.git
 cd AllInOneWorkspace
 # 已安装 nvm 时，可用 nvm install && nvm use 切换到 .nvmrc 指定版本。
 npm install --global pnpm@11.25.0
@@ -21,10 +21,11 @@ pnpm dev
 
 首次启动会创建“默认账号”和空白工作区。点击底部“为工作区再添一点可能”即可加入文本卡片、计数器、飞书日历或财联社 7×24 快讯。同一种组件可以添加多次，每个实例独立保存布局和配置。
 
-本项目不附带远程仓库地址。将本地 Git 仓库推送到你选择的 Git 服务后，其他设备即可按上述步骤 clone。
+Git 分发源码；账号数据通过导入导出迁移，不自动跨设备同步。
 
 ## 日常使用
 
+- **顶部菜单**：应用菜单提供中文“关于工作区”、隐藏和退出；“编辑”保留撤销、重做、剪切、复制、粘贴和全选；“窗口”集中管理显示工作区、最小化、全屏、界面缩放和关闭。`⌘1` 可重新显示工作区，`⌘0` 恢复默认缩放；常用编辑快捷键保持可用。正式安装包不显示开发者工具。
 - **添加组件**：普通模式从底部“为工作区再添一点可能”打开组件库；进入编辑布局后，右上角也会出现“添加组件”。有本地记录时先选择恢复哪一份，也可以添加全新卡片。
 - **移除卡片**：编辑模式点击卡片移除按钮，选择“仅移除卡片，保留数据”或“删除卡片及其设置和数据”。保留时可命名，每张实例独立存为记录；恢复后记录移回工作区。组件库内可单独确认删除某份记录。
 - **编辑布局**：开启编辑模式，用卡片左上角的手柄拖动，右下角调整大小；拖动完成后自动保存。“重新整理布局”保留内容，并按默认尺寸重新排列。
@@ -40,17 +41,21 @@ pnpm dev
 
 ## 命令
 
-| 命令                             | 用途                                                         |
-| -------------------------------- | ------------------------------------------------------------ |
-| `pnpm install --frozen-lockfile` | 安装锁定的依赖与运行时                                       |
-| `pnpm dev`                       | 启动带热更新的桌面应用                                       |
-| `pnpm check`                     | TypeScript 类型检查                                          |
-| `pnpm test`                      | 账号隔离、存储恢复、迁移、组件注册和生命周期测试             |
-| `pnpm test:desktop`              | 构建后启动真实 Electron 窗口，测试拖拽、缩放、账号和重启恢复 |
-| `pnpm build`                     | 构建主进程、preload 和界面到 `out/`                          |
-| `pnpm dist`                      | 为当前 Mac 架构生成 `.app` 和 `.dmg` 到 `release/`           |
+| 命令                             | 用途                                                          |
+| -------------------------------- | ------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile` | 安装锁定的依赖与运行时                                        |
+| `pnpm dev`                       | 启动带热更新的桌面应用                                        |
+| `pnpm check`                     | TypeScript 类型检查                                           |
+| `pnpm test`                      | 账号隔离、存储恢复、迁移、组件注册和生命周期测试              |
+| `pnpm test:desktop`              | 构建后启动真实 Electron 窗口，测试拖拽、缩放、账号和重启恢复  |
+| `pnpm build`                     | 构建主进程、preload 和界面到 `out/`                           |
+| `pnpm dist`                      | 为 Apple Silicon 生成 `.app`、`.dmg` 和更新 ZIP 到 `release/` |
 
-`pnpm dist` 不发布到外部服务。首版应用未签名、未公证，无自动更新；macOS 可能提示确认来源。请只运行自己构建或信任来源的安装包。
+`pnpm dist` 不发布到外部服务，也不需要发布私钥。1.1.0 增加基于 GitHub 正式 Release 的检查、下载和重启安装功能；无 Apple 签名和公证，系统仍可能要求确认来源。首次从 1.0.0 升级需手动安装。详见[自动更新与发布指南](docs/updates.md)。
+
+开发 agent 和维护者请先阅读仓库内的 [发布操作指南](RELEASING.md)。
+
+发布命令：`pnpm release:keygen`（仅首次生成密钥）、`pnpm dist:release`（校验并签署安装包）、`pnpm release`（创建 GitHub 草稿）。原生安装器测试：`pnpm test:installer`。
 
 若本机禁用了安装脚本，可执行 `pnpm exec install-electron` 安装 Electron 运行时。运行 `pnpm dev` 时也会按需检查下载。
 

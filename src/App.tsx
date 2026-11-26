@@ -30,6 +30,8 @@ import {
 import { version } from '../package.json'
 import { widgetRegistry } from './widgets'
 import { WorkspaceController } from './workspace/controller'
+import { UpdateEntry } from './components/UpdateEntry'
+import { UpdateSettings, useUpdates } from './components/UpdateSettings'
 import { Modal } from './components/Modal'
 import { WidgetCard } from './components/WidgetCard'
 import { WidgetLibrary } from './components/WidgetLibrary'
@@ -46,6 +48,7 @@ type Dialog =
   | 'library'
   | 'accounts'
   | 'settings'
+  | 'updates'
   | { kind: 'remove-widget'; id: string }
   | { kind: 'delete-account'; account: Account }
 
@@ -65,6 +68,8 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getState)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [editing, setEditing] = useState(false)
+  const updateState = useUpdates(api.updates)
+  const [dismissedUpdate, setDismissedUpdate] = useState<string | undefined>()
   const dragOrigin = useRef<{ id: string; layout: Layout } | null>(null)
   const displacementCompactor = useMemo<Compactor>(
     () => ({
@@ -173,6 +178,26 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
           LOCAL FIRST
         </span>
       </div>
+      {updateState?.phase === 'ready' && updateState.version !== dismissedUpdate && (
+        <aside className="update-banner" role="status">
+          <span>
+            v{updateState.version} 已下载
+            {updateState.canInstall
+              ? '，准备好后可以重启安装。'
+              : '，请安装到可写的应用程序目录后更新。'}
+          </span>
+          <button className="button" disabled={state.busy} onClick={() => setDialog('updates')}>
+            查看更新
+          </button>
+          <button
+            className="icon-button"
+            aria-label="稍后更新"
+            onClick={() => setDismissedUpdate(updateState.version)}
+          >
+            <X size={16} />
+          </button>
+        </aside>
+      )}
       <header className="toolbar">
         <div className="brand">
           <div className="brand-mark">
@@ -205,6 +230,11 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
               添加组件
             </button>
           )}
+          <UpdateEntry
+            state={updateState}
+            disabled={state.busy}
+            onClick={() => setDialog('updates')}
+          />
           <span className="toolbar-separator" />
           <button
             className="icon-button settings-button"
@@ -425,13 +455,34 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
           />
         </Modal>
       )}
-      {dialog === 'settings' && (
+      {dialog === 'updates' && (
         <Modal
-          title="工作区设置"
-          subtitle="管理当前账号的连接与数据。"
+          title="版本与更新"
+          subtitle="检查新版本，选择合适的时间重启安装。"
           onClose={() => setDialog(null)}
           locked={state.busy}
         >
+          <UpdateSettings
+            state={updateState}
+            api={api.updates}
+            busy={state.busy}
+            install={() => controller.installUpdate()}
+          />
+        </Modal>
+      )}
+      {dialog === 'settings' && (
+        <Modal
+          title="工作区设置"
+          subtitle="管理应用更新、当前账号的连接与数据。"
+          onClose={() => setDialog(null)}
+          locked={state.busy}
+        >
+          <UpdateSettings
+            state={updateState}
+            api={api.updates}
+            busy={state.busy}
+            install={() => controller.installUpdate()}
+          />
           <FeishuConnectionSettings
             key={account.id}
             accountId={account.id}

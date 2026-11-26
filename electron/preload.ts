@@ -7,6 +7,22 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return result.value
 }
 const api: DesktopAPI = {
+  updates: {
+    getState: () => invoke('updates:state'),
+    check: () => invoke('updates:check'),
+    download: () => invoke('updates:download'),
+    setAutomatic: (enabled) => invoke('updates:automatic', enabled),
+    install: () => invoke('updates:install'),
+    openRelease: () => invoke('updates:open-release'),
+    onChanged: (callback) => {
+      const listener = (_event: unknown, state: import('../src/shared/updates').UpdateState) =>
+        callback(state)
+      ipcRenderer.on('updates:changed', listener)
+      return () => {
+        ipcRenderer.removeListener('updates:changed', listener)
+      }
+    },
+  },
   telegraph: {
     getFeed: (force) => invoke('telegraph:feed', force === true),
     loadOlder: (cursor) => invoke('telegraph:older', cursor),

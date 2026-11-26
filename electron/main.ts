@@ -11,7 +11,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { WorkspaceStore } from './storage/workspace-store'
 import { MAX_FILE_BYTES } from './storage/json-files'
@@ -26,6 +26,11 @@ import { TelegraphClient } from './telegraph/client'
 import { TelegraphHistoryCache } from './telegraph/history-cache'
 import { TelegraphService } from './telegraph/service'
 import { telegraphCursorSchema, telegraphItemIdSchema } from '../src/shared/telegraph'
+
+import updateKey from '../build/update-public-key.json'
+import { UpdateService } from './updates/service'
+import { installationReason, startInstaller, completeUpdateHandshake } from './updates/installer'
+import { releaseUrl } from './updates/protocol'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 app.setName('All In One Workspace')
@@ -54,6 +59,9 @@ const telegraph = new TelegraphService(
   new TelegraphHistoryCache(join(store.directory, 'cache', 'cls-telegraph-v1')),
 )
 let window: BrowserWindow | null = null
+let updates: UpdateService | undefined
+let updateInstalling = false
+let mainReady = false
 let closeRequested = false
 let quitRequested = false
 let allowedToQuit = false
@@ -76,6 +84,8 @@ function handle(channel: string, action: (...args: any[]) => unknown) {
   ipcMain.handle(channel, async (event, ...args): Promise<ApiResult<unknown>> => {
     try {
       if (!trusted(event)) throw new Error('拒绝未知页面请求')
+      if (updateInstalling && (channel === 'workspace:save' || channel.startsWith('account:')))
+        throw new Error('正在安装更新，请稍候')
       return { ok: true, value: await action(...args) }
     } catch (error) {
       return { ok: false, error: errorMessage(error) }
@@ -86,6 +96,14 @@ function requestClose() {
   if (!window || window.isDestroyed()) return
   closeRequested = true
   window.webContents.send('workspace:close-requested')
+}
+function showWorkspace() {
+  if (!window) createWindow()
+  else {
+    if (window.isMinimized()) window.restore()
+    window.show()
+    window.focus()
+  }
 }
 function createWindow() {
   closeRequested = false
@@ -110,6 +128,7 @@ function createWindow() {
   window.webContents.on('will-navigate', (event) => event.preventDefault())
   window.on('ready-to-show', () => window?.show())
   window.on('close', (event) => {
+    if (allowedToQuit) return
     event.preventDefault()
     requestClose()
   })
@@ -134,12 +153,62 @@ function createWindow() {
 if (!app.requestSingleInstanceLock()) app.quit()
 else {
   app.on('second-instance', () => {
-    if (window) {
-      if (window.isMinimized()) window.restore()
-      window.focus()
-    } else createWindow()
+    if (!mainReady) return
+    showWorkspace()
   })
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
+    const target = resolve(process.resourcesPath, '../..')
+    updates = new UpdateService({
+      directory: store.directory,
+      version: app.getVersion(),
+      systemVersion: process.getSystemVersion(),
+      enabled: app.isPackaged && process.platform === 'darwin' && process.arch === 'arm64',
+      publicKey: updateKey.publicKey,
+      installationReason: await installationReason(target),
+      changed: (state) => {
+        if (window && !window.isDestroyed()) window.webContents.send('updates:changed', state)
+      },
+    })
+    try {
+      await completeUpdateHandshake(process.argv, target, updates.cache)
+    } catch {
+      allowedToQuit = true
+      app.exit(1)
+      return
+    }
+    try {
+      await updates.init()
+      updates.start()
+    } catch (error) {
+      updates.initializationFailed(error)
+    }
+    handle('updates:state', () => updates!.getState())
+    handle('updates:check', () => updates!.check())
+    handle('updates:download', () => updates!.download())
+    handle('updates:automatic', (enabled) => updates!.setAutomatic(enabled))
+    handle('updates:open-release', () =>
+      shell.openExternal(releaseUrl(updates!.getState().version)),
+    )
+    handle('updates:install', async () => {
+      if (updateInstalling) throw new Error('更新正在安装')
+      updateInstalling = true
+      try {
+        await startInstaller(
+          updates!,
+          target,
+          join(process.resourcesPath, 'aio-update-installer'),
+          store.directory,
+        )
+        setTimeout(() => {
+          allowedToQuit = true
+          app.quit()
+        }, 100)
+      } catch (error) {
+        updateInstalling = false
+        updates!.installFailed(error)
+        throw error
+      }
+    })
     session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) =>
       callback(false),
     )
@@ -170,6 +239,7 @@ else {
     powerMonitor.on('resume', () => {
       feishu.resume()
       telegraph.resume()
+      updates?.resume()
     })
     handle('account:export', async (id) => {
       const data = await store.exportAccount(id)
@@ -209,32 +279,71 @@ else {
         {
           label: app.name,
           submenu: [
-            { role: 'about' },
+            {
+              id: 'about-workspace',
+              label: '关于工作区',
+              click: () => {
+                const options = {
+                  type: 'info' as const,
+                  title: '关于工作区',
+                  message: 'All In One Workspace',
+                  detail: `版本 ${app.getVersion()}\n你的本地个人工作区。\n账号、布局和组件数据保存在本机。`,
+                  buttons: ['好'],
+                  noLink: true,
+                }
+                if (window) void dialog.showMessageBox(window, options)
+                else void dialog.showMessageBox(options)
+              },
+            },
             { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
-            { role: 'unhide' },
+            { label: '隐藏工作区', role: 'hide' },
             { type: 'separator' },
-            { role: 'quit' },
+            { label: '退出工作区', role: 'quit' },
           ],
         },
-        { role: 'editMenu' },
         {
-          label: '视图',
+          label: '编辑',
           submenu: [
-            { role: 'resetZoom' },
-            { role: 'zoomIn' },
-            { role: 'zoomOut' },
-            { role: 'togglefullscreen' },
-            ...(!app.isPackaged ? [{ role: 'toggleDevTools' as const }] : []),
+            { label: '撤销', role: 'undo' },
+            { label: '重做', role: 'redo' },
+            { type: 'separator' },
+            { label: '剪切', role: 'cut' },
+            { label: '复制', role: 'copy' },
+            { label: '粘贴', role: 'paste' },
+            { label: '全选', role: 'selectAll' },
           ],
         },
-        { role: 'windowMenu' },
+        {
+          label: '窗口',
+          submenu: [
+            {
+              id: 'show-workspace',
+              label: '显示工作区',
+              accelerator: 'CmdOrCtrl+1',
+              click: showWorkspace,
+            },
+            { label: '最小化窗口', role: 'minimize' },
+            { label: '切换全屏', role: 'togglefullscreen' },
+            { type: 'separator' },
+            { label: '放大界面', role: 'zoomIn' },
+            { label: '缩小界面', role: 'zoomOut' },
+            { label: '恢复默认缩放', role: 'resetZoom' },
+            { type: 'separator' },
+            { label: '关闭窗口', role: 'close' },
+            ...(!app.isPackaged
+              ? [
+                  { type: 'separator' as const },
+                  { label: '切换开发者工具', role: 'toggleDevTools' as const },
+                ]
+              : []),
+          ],
+        },
       ]),
     )
+    mainReady = true
     createWindow()
     app.on('activate', () => {
-      if (!window) createWindow()
+      showWorkspace()
     })
   })
   app.on('before-quit', (event) => {
@@ -248,6 +357,7 @@ else {
     if (process.platform !== 'darwin') app.quit()
   })
   app.on('will-quit', () => {
+    updates?.dispose()
     feishu.dispose()
     telegraph.dispose()
   })

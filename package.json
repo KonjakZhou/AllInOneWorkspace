@@ -1,6 +1,6 @@
 {
   "name": "all-in-one-workspace",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "private": true,
   "description": "A personal, extensible local desktop workspace",
   "author": "All In One Workspace contributors",
@@ -17,13 +17,19 @@
     "test": "vitest run",
     "test:desktop": "pnpm build && playwright test",
     "build": "pnpm check && electron-vite build",
-    "dist": "pnpm build && electron-builder --mac --publish never"
+    "dist": "pnpm build && pnpm build:installer && electron-builder --mac --publish never",
+    "build:installer": "node scripts/build-installer.mjs",
+    "release:keygen": "node scripts/release.mjs keygen",
+    "dist:release": "node scripts/release.mjs build",
+    "release": "node scripts/release.mjs draft",
+    "test:installer": "node scripts/test-installer.mjs"
   },
   "dependencies": {
     "lucide-react": "1.77.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-grid-layout": "2.3.0",
+    "yauzl": "3.4.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -32,6 +38,7 @@
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/yauzl": "3.4.0",
     "@vitejs/plugin-react": "6.3.0",
     "electron": "45.4.1",
     "electron-builder": "26.18.0",
