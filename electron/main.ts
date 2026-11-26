@@ -17,6 +17,9 @@ import { WorkspaceStore } from './storage/workspace-store'
 import { MAX_FILE_BYTES } from './storage/json-files'
 import { errorMessage } from '../src/shared/model'
 import type { ApiResult } from '../src/shared/api'
+import { IdeaService } from './trading-ideas/service'
+import { collectors } from './trading-ideas/sources'
+import { registerIdeaHandlers } from './trading-ideas/ipc'
 import { EncryptedVault } from './feishu/vault'
 import { FeishuClient } from './feishu/client'
 import { LoopbackOAuth } from './feishu/oauth'
@@ -67,6 +70,9 @@ let quitRequested = false
 let allowedToQuit = false
 const rendererFile = join(dirname, '../renderer/index.html')
 const devURL = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
+const ideas = new IdeaService(join(store.directory, 'trading-ideas'), collectors(), () => {
+  if (window && !window.isDestroyed()) window.webContents.send('ideas:changed')
+})
 
 function trusted(event: IpcMainInvokeEvent) {
   if (
@@ -218,9 +224,17 @@ else {
     handle('account:create', (name) => store.createAccount(name))
     handle('account:rename', (id, name) => store.renameAccount(id, name))
     handle('account:switch', (id) => store.switchAccount(id))
-    handle('account:delete', (id) =>
-      store.deleteAccount(id, (accountId) => feishu.removeAccount(accountId)),
-    )
+    handle('account:delete', async (id) => {
+      const snapshot = await store.deleteAccount(id, (accountId) => feishu.removeAccount(accountId))
+      try {
+        ideas.removeAccount(id)
+      } catch {
+        snapshot.notices.push('账号已删除，交易灵感个人资料清理失败。')
+      }
+      return snapshot
+    })
+    registerIdeaHandlers(handle, ideas, (id) => store.isActiveAccount(id))
+    ideas.start()
     handle('feishu:connection', (id) => feishu.getConnection(id))
     handle('feishu:connect', (id) => feishu.connect(id))
     handle('feishu:reopen', (id) => feishu.reopenAuthorization(id))
@@ -239,6 +253,7 @@ else {
     powerMonitor.on('resume', () => {
       feishu.resume()
       telegraph.resume()
+      ideas.resume()
       updates?.resume()
     })
     handle('account:export', async (id) => {
@@ -360,5 +375,6 @@ else {
     updates?.dispose()
     feishu.dispose()
     telegraph.dispose()
+    ideas.dispose()
   })
 }

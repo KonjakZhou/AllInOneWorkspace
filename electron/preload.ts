@@ -1,10 +1,27 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ApiResult, DesktopAPI } from '../src/shared/api'
+import type { TradingIdeasAPI } from '../src/shared/trading-ideas'
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   const result: ApiResult<T> = await ipcRenderer.invoke(channel, ...args)
   if (!result.ok) throw new Error(result.error)
   return result.value
+}
+const tradingIdeas: TradingIdeasAPI = {
+  enable: (account) => invoke('ideas:enable', account),
+  overview: (account) => invoke('ideas:overview', account),
+  list: (account, query) => invoke('ideas:list', account, query),
+  detail: (account, id) => invoke('ideas:detail', account, id),
+  add: (account, input) => invoke('ideas:add', account, input),
+  saveNote: (account, id, note) => invoke('ideas:note', account, id, note),
+  openSource: (account, id, index) => invoke('ideas:source', account, id, index),
+  refresh: (account) => invoke('ideas:refresh', account),
+  status: (account) => invoke('ideas:status', account),
+  onChanged: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('ideas:changed', listener)
+    return () => ipcRenderer.removeListener('ideas:changed', listener)
+  },
 }
 const api: DesktopAPI = {
   updates: {
@@ -23,6 +40,7 @@ const api: DesktopAPI = {
       }
     },
   },
+  tradingIdeas,
   telegraph: {
     getFeed: (force) => invoke('telegraph:feed', force === true),
     loadOlder: (cursor) => invoke('telegraph:older', cursor),

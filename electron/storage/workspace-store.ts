@@ -174,6 +174,9 @@ export class WorkspaceStore {
       }
     })
   }
+  isActiveAccount(id: string): Promise<boolean> {
+    return this.queue(async () => (await this.index()).activeAccountId === id)
+  }
   hasAccount(id: string): Promise<boolean> {
     return this.queue(async () =>
       (await this.index()).accounts.some((account) => account.id === id),
