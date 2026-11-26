@@ -131,6 +131,19 @@ export class WorkspaceController {
       this.emit({ busy: false })
     }
   }
+  async installUpdate() {
+    if (this.state.busy) throw new Error('请等待当前操作完成')
+    this.emit({ busy: true, error: null })
+    try {
+      await this.flush()
+      await this.api.updates.install()
+      // Keep all mutations paused until the main process exits.
+    } catch (error) {
+      this.emit({ busy: false })
+      this.showError(error)
+      throw error
+    }
+  }
   switchAccount(id: string) {
     return this.transaction(() => this.api.switchAccount(id))
   }

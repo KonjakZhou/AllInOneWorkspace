@@ -4,13 +4,18 @@ directories:
   output: release
 files:
   - out/**
+  - '!out/installer/**'
   - package.json
+extraResources:
+  - from: out/installer/aio-update-installer
+    to: aio-update-installer
 asar: true
 mac:
   icon: build/icon.icns
   category: public.app-category.productivity
   identity: null
   target:
+    - zip
     - dmg
     - dir
 dmg:

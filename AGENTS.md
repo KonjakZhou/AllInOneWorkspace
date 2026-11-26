@@ -22,3 +22,9 @@
 - Before cleanup, verify that the target `release/` is a real directory contained by the current worktree and is not a symlink that escapes it. If containment cannot be proven, skip deletion and report the issue.
 - Run cleanup only after a successful package build and when no other packaging process is writing to that worktree's `release/`. Select explicit versioned artifact files, order versions by semantic version rather than modification time, and never use a broad recursive deletion of `release/`.
 - Do not delete the current `.app` bundle, the retained version sets, or non-versioned builder metadata needed by the latest build. If a cleanup candidate is ambiguous, keep it and report it rather than risking another worktree's or version's output.
+
+## Release workflow
+
+- Before preparing a version, signing a build, creating a release tag, uploading assets, or publishing to GitHub, read [RELEASING.md](RELEASING.md) and follow its repository-specific procedure.
+- Keep release instructions in `RELEASING.md`; link to them from user documentation instead of maintaining duplicate publishing steps.
+- This documentation does not itself authorize publication. Carry out the release stages authorized by the user's request; preserve existing signing trust and never include private keys or account data in source or artifacts.

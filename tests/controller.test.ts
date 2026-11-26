@@ -23,6 +23,7 @@ function setup() {
     second = snapshot('工作')
   const saved: Workspace[] = []
   const api: DesktopAPI = {
+    updates: {} as DesktopAPI['updates'],
     feishu: {} as DesktopAPI['feishu'], // Workspace persistence never calls external connections.
     telegraph: {} as DesktopAPI['telegraph'], // Workspace persistence never calls public news.
     load: vi.fn(async () => first),
@@ -269,4 +270,30 @@ describe('saved card records', () => {
     expect(controller.getState().snapshot!.workspace.savedWidgets).toEqual([records[1]])
     await controller.flush()
   })
+})
+
+it('locks edits before update flush, cancels installation on save failure, and stays locked on success', async () => {
+  const { controller, api } = setup()
+  api.updates.install = vi.fn(async () => {})
+  await controller.load()
+  controller.addWidget('starter.counter')
+  vi.mocked(api.save).mockRejectedValueOnce(new Error('disk full'))
+  await expect(controller.installUpdate()).rejects.toThrow('disk full')
+  expect(api.updates.install).not.toHaveBeenCalled()
+  expect(controller.getState().busy).toBe(false)
+  let finish!: () => void
+  vi.mocked(api.save).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve
+      }),
+  )
+  const pending = controller.installUpdate()
+  const before = controller.getState().snapshot!.workspace.widgets.length
+  controller.addWidget('starter.counter')
+  expect(controller.getState().snapshot!.workspace.widgets).toHaveLength(before)
+  finish()
+  await pending
+  expect(api.updates.install).toHaveBeenCalledOnce()
+  expect(controller.getState().busy).toBe(true)
 })
