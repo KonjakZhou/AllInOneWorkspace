@@ -23,6 +23,7 @@ function setup() {
     second = snapshot('工作')
   const saved: Workspace[] = []
   const api: DesktopAPI = {
+    mailFor: vi.fn(),
     updates: {} as DesktopAPI['updates'],
     feishu: {} as DesktopAPI['feishu'], // Workspace persistence never calls external connections.
     telegraph: {} as DesktopAPI['telegraph'], // Workspace persistence never calls public news.

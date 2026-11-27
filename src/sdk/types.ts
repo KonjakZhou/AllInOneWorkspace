@@ -18,7 +18,7 @@ export interface WidgetDefinition<C extends Json = Json, D extends Json = Json> 
   name: string
   description: string
   version: number
-  icon: 'text' | 'counter' | 'widget' | 'calendar' | 'news'
+  icon: 'text' | 'counter' | 'widget' | 'calendar' | 'news' | 'mail'
   chrome?: 'standard' | 'compact'
   accent: 'sage' | 'peach' | 'lavender' | 'sand'
   defaultSize: { w: number; h: number }

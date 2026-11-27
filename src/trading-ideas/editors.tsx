@@ -9,7 +9,8 @@ import {
   type ManualIdea,
 } from '../shared/trading-ideas'
 import { errorMessage } from '../shared/model'
-import { ChoicePicker, DatePicker, choices } from './pickers'
+import { ChoicePicker } from '../components/ChoicePicker'
+import { DatePicker, choices } from './pickers'
 
 const categoryOptions = choices(categories)
 const priorityOptions = choices(priorityLevels)

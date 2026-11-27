@@ -7,9 +7,21 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --muted: #8d958e;
+  --muted-ink: #667567;
   --green: #48694f;
   --line: #e5e6df;
   --white: #fffefa;
+  --focus-ring: #a9bca0;
+  --control-border: #dde1d7;
+  --control-hover-border: #bdc7b5;
+  --control-hover: #f4f5ed;
+  --control-radius: 10px;
+  --control-icon-inset: 12px;
+  --popover-shadow: 0 8px 22px #26392b26;
+  --panel-border: #e3e6db;
+  --panel-radius: 17px;
+  --selected-surface: #f2f6e9;
+  --selected-border: #d9e3cb;
 }
 * {
   box-sizing: border-box;
@@ -36,10 +48,11 @@ button:disabled {
   cursor: default;
   opacity: 0.5;
 }
+a[href]:focus-visible,
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid #a9bca0;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 button {
@@ -92,6 +105,47 @@ button svg {
     32px 32px,
     32px 32px;
 }
+
+.workspace-behind-detail {
+  visibility: hidden;
+}
+.workspace-detail-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  background: #faf9f5;
+}
+.workspace-detail-screen[hidden] {
+  display: none;
+}
+.workspace-detail-header,
+.workspace-detail-title {
+  display: flex;
+  align-items: center;
+}
+.workspace-detail-header {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 22px;
+  border-bottom: 1px solid #dfe4da;
+  background: #f0f2e9;
+}
+.workspace-detail-title {
+  min-width: 0;
+  gap: 10px;
+  white-space: nowrap;
+}
+.workspace-detail-title h1 {
+  font-size: 19px;
+  font-weight: 650;
+}
+.workspace-detail-title .workspace-detail-back {
+  margin-left: 10px;
+}
+
 .titlebar {
   position: sticky;
   top: 0;
@@ -182,22 +236,22 @@ button svg {
 }
 .button {
   min-height: 39px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  background: var(--white);
+  font-size: 12px;
   display: inline-flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
   padding: 9px 15px;
-  border: 1px solid #dde1d7;
-  border-radius: 10px;
-  background: #fffefa;
-  font-size: 12px;
   font-weight: 550;
   white-space: nowrap;
   box-shadow: 0 2px 2px #2f4b2a03;
 }
 .button:hover:not(:disabled) {
-  background: #f4f5ed;
-  border-color: #bdc7b5;
+  background-color: var(--control-hover);
+  border-color: var(--control-hover-border);
 }
 .button.primary {
   background: var(--green);
@@ -214,6 +268,74 @@ button svg {
   padding: 6px 11px;
   font-size: 11px;
   gap: 5px;
+}
+.choice-picker {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+}
+.choice-picker .button.choice-picker-trigger {
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+  padding-inline: var(--control-icon-inset);
+  text-align: left;
+}
+.choice-picker-trigger > span,
+.choice-picker-option > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.choice-picker-chevron {
+  color: var(--muted-ink);
+}
+.choice-picker-trigger [data-placeholder] {
+  color: var(--muted-ink);
+}
+.choice-picker .button.choice-picker-trigger[aria-expanded='true'] {
+  background: var(--selected-surface);
+  border-color: var(--control-hover-border);
+}
+.choice-picker-panel {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 5px;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: inherit;
+  background: var(--white);
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  box-shadow: var(--popover-shadow);
+}
+.choice-picker-panel .choice-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+}
+.choice-picker-panel .choice-picker-option:is(:hover, :focus-visible) {
+  background: var(--control-hover);
+  border-color: var(--line);
+}
+.choice-picker-panel .choice-picker-option[aria-selected='true'] {
+  color: var(--green);
+  background: var(--selected-surface);
+}
+.choice-picker-option:focus-visible {
+  outline-offset: -2px;
 }
 .button.danger {
   background: #b65e4c;
@@ -246,6 +368,39 @@ button svg {
 .icon-button.compact {
   width: 26px;
   height: 26px;
+}
+:is(.button, .icon-button):has(> .control-hint) {
+  position: relative;
+}
+.control-hint {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  inset-inline-end: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  background: var(--white);
+  box-shadow: var(--popover-shadow);
+  color: var(--muted-ink);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.button > .control-hint {
+  inset-inline: 0 auto;
+  top: calc(100% + 6px);
+  transform: none;
+  width: max-content;
+  max-width: 230px;
+  white-space: normal;
+  text-align: left;
+}
+:is(.button, .icon-button):enabled:is(:hover, :focus-visible) > .control-hint {
+  display: block;
 }
 .icon-button.danger-hover:hover:not(:disabled) {
   background: #f8e5dd;
@@ -710,15 +865,18 @@ button svg {
   background: #fffefa99;
   color: #73866a;
 }
+.panel,
+.widget-card {
+  background: var(--white);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+  box-shadow: 0 4px 14px #414d2d04;
+}
 .widget-card {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--white);
-  border: 1px solid #e3e6db;
-  border-radius: 17px;
-  overflow: hidden;
-  box-shadow: 0 4px 14px #414d2d04;
 }
 .widget-card.accent-sand {
   background: linear-gradient(155deg, #fffef9, #fcf7e9);
@@ -964,6 +1122,16 @@ button svg {
   font-size: 13px;
   font-weight: 550;
 }
+.widget-state.compact {
+  gap: 6px;
+  padding: 8px;
+  color: var(--muted-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .widget-state .spin {
+    animation: none;
+  }
+}
 .modal {
   padding: 0;
   border: 1px solid #e4e7db;
@@ -1007,6 +1175,20 @@ button svg {
 }
 .modal-content {
   padding: 23px 26px 26px;
+}
+@media (max-height: 520px) {
+  .modal {
+    max-height: calc(100dvh - 32px);
+  }
+  .modal-header {
+    padding-block: 18px 12px;
+  }
+  .modal-content {
+    padding-block: 16px 18px;
+  }
+  .modal .form-stack {
+    gap: 12px;
+  }
 }
 .library-heading {
   display: flex;
@@ -1225,12 +1407,22 @@ button svg {
   gap: 19px;
 }
 .form-stack label,
+.form-stack .choice-picker-label,
 .new-account-form label {
   display: flex;
   flex-direction: column;
   gap: 9px;
   font-size: 12px;
   color: #7a8870;
+}
+.form-stack .checkbox-field {
+  flex-direction: row;
+  align-items: center;
+}
+.checkbox-field input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--green);
 }
 .field-hint {
   font-size: 10px;
@@ -1261,6 +1453,11 @@ button svg {
   max-height: 290px;
   overflow: auto;
 }
+ul.account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .account-row {
   display: flex;
   align-items: center;
@@ -1270,8 +1467,8 @@ button svg {
   gap: 2px;
 }
 .account-row.selected {
-  background: #f2f6e9;
-  border-color: #d9e3cb;
+  background: var(--selected-surface);
+  border-color: var(--selected-border);
 }
 .account-select {
   border: none;
@@ -1287,10 +1484,15 @@ button svg {
 .account-select:disabled {
   opacity: 1;
 }
-.account-select > span:nth-child(2) {
+.account-select > span:nth-child(2),
+.account-details {
   min-width: 0;
 }
-.account-select strong {
+.account-details {
+  flex: 1;
+}
+.account-select strong,
+.account-details strong {
   display: block;
   font-size: 12px;
   font-weight: 550;
@@ -1298,11 +1500,17 @@ button svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.account-select small {
+.account-select small,
+.account-details small {
   display: block;
   font-size: 9px;
   color: #9aa58c;
   margin-top: 5px;
+}
+.account-details small {
+  color: var(--muted-ink);
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 .account-select > svg {
   margin-left: auto;

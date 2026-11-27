@@ -36,3 +36,50 @@ it('keeps the same upward gesture in history mode when the live head returns', a
     vi.useRealTimers()
   }
 })
+
+it('checks refresh availability during both the pull and the release', async () => {
+  vi.useFakeTimers()
+  const refresh = vi.fn(async () => {})
+  const older = vi.fn()
+  let available = false
+
+  function Fixture() {
+    const list = useRef<HTMLDivElement>(null)
+    const pull = useEdgeGestures(list, {
+      refresh,
+      canRefresh: () => available,
+      minRefreshMs: 0,
+      older,
+    })
+    return <div ref={list} aria-label="邮件列表" data-phase={pull.phase} />
+  }
+
+  const view = render(<Fixture />)
+  try {
+    const list = view.getByLabelText('邮件列表')
+    expect(fireEvent.wheel(list, { deltaY: -160, cancelable: true })).toBe(true)
+    expect(list.dataset.phase).toBe('idle')
+    await act(async () => vi.advanceTimersByTimeAsync(150))
+    expect(refresh).not.toHaveBeenCalled()
+    expect(fireEvent.wheel(list, { deltaY: 160, cancelable: true })).toBe(true)
+    expect(older).toHaveBeenCalledOnce()
+    await act(async () => vi.advanceTimersByTimeAsync(150))
+
+    available = true
+    fireEvent.wheel(list, { deltaY: -160 })
+    expect(list.dataset.phase).toBe('dragging')
+    available = false
+    await act(async () => vi.advanceTimersByTimeAsync(150))
+    expect(list.dataset.phase).toBe('idle')
+    expect(refresh).not.toHaveBeenCalled()
+
+    available = true
+    fireEvent.wheel(list, { deltaY: -160 })
+    await act(async () => vi.advanceTimersByTimeAsync(150))
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(list.dataset.phase).toBe('idle')
+  } finally {
+    view.unmount()
+    vi.useRealTimers()
+  }
+})

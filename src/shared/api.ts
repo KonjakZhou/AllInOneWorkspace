@@ -3,8 +3,10 @@ import type { FeishuAPI } from './feishu'
 import type { TelegraphAPI } from './telegraph'
 import type { TradingIdeasAPI } from './trading-ideas'
 import type { UpdatesAPI } from './updates'
+import type { MailAPI } from './mail'
 
 export interface DesktopAPI {
+  mailFor(workspace: string): MailAPI
   updates: UpdatesAPI
   feishu: FeishuAPI
   telegraph: TelegraphAPI

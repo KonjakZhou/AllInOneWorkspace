@@ -6,7 +6,13 @@ const WHEEL_IDLE = 150
 
 export function useEdgeGestures(
   list: RefObject<HTMLDivElement | null>,
-  edges: { refresh: () => Promise<void>; older: () => void; newer?: () => void },
+  edges: {
+    refresh: () => Promise<void>
+    canRefresh?: () => boolean
+    minRefreshMs?: number
+    older: () => void
+    newer?: () => void
+  },
 ) {
   const actions = useRef(edges)
   useLayoutEffect(() => {
@@ -33,6 +39,7 @@ export function useEdgeGestures(
     const top = () => element.scrollTop <= 1
     const bottom = () => element.scrollHeight - element.clientHeight - element.scrollTop <= 2
     const height = () => Math.min(MAX_PULL, distance * 0.55)
+    const canRefresh = () => actions.current.canRefresh?.() ?? true
     const drag = (delta: number) => {
       distance = Math.max(0, Math.min(MAX_PULL / 0.55, distance + delta))
       setPull({ height: height(), phase: distance ? 'dragging' : 'idle' })
@@ -41,23 +48,33 @@ export function useEdgeGestures(
       const armed = height() >= TRIGGER
       distance = 0
       if (refreshing) return
-      if (cancelled || !armed) {
+      if (cancelled || !armed || !canRefresh()) {
         setPull({ height: 0, phase: 'idle' })
         return
       }
       refreshing = true
       setPull({ height: 42, phase: 'refreshing' })
       const started = performance.now()
+      const minRefreshMs = actions.current.minRefreshMs ?? 350
       void actions.current.refresh().finally(() => {
         if (!active) return
-        settle = setTimeout(
-          () => {
-            refreshing = false
-            setPull({ height: 0, phase: 'idle' })
-          },
-          Math.max(0, 350 - (performance.now() - started)),
-        )
+        const finish = () => {
+          refreshing = false
+          setPull({ height: 0, phase: 'idle' })
+        }
+        const remaining = minRefreshMs - (performance.now() - started)
+        if (remaining > 0) settle = setTimeout(finish, remaining)
+        else finish()
       })
+    }
+
+    const pullAtTop = (event: Event, delta: number) => {
+      if (!refreshing && !canRefresh()) {
+        if (distance) release(true)
+        return
+      }
+      if (event.cancelable) event.preventDefault()
+      if (!refreshing) drag(delta)
     }
 
     const wheel = (event: WheelEvent) => {
@@ -78,9 +95,8 @@ export function useEdgeGestures(
         return
       }
       if (top() && (event.deltaY < 0 || distance > 0)) {
-        event.preventDefault()
         const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1
-        if (!refreshing) drag(-event.deltaY * scale)
+        pullAtTop(event, -event.deltaY * scale)
       } else if (event.deltaY > 0 && bottom() && !loadedFromWheel) {
         loadedFromWheel = true
         actions.current.older()
@@ -110,8 +126,7 @@ export function useEdgeGestures(
         return
       }
       if (top() && (delta > 0 || distance > 0)) {
-        if (event.cancelable) event.preventDefault()
-        if (!refreshing) drag(delta)
+        pullAtTop(event, delta)
       } else if (delta < 0 && bottom() && !loadedFromTouch) {
         loadedFromTouch = true
         actions.current.older()

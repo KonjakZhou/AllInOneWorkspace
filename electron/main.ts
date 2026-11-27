@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { WorkspaceStore } from './storage/workspace-store'
 import { MAX_FILE_BYTES } from './storage/json-files'
-import { errorMessage } from '../src/shared/model'
+import { errorMessage, type Snapshot } from '../src/shared/model'
 import type { ApiResult } from '../src/shared/api'
 import { IdeaService } from './trading-ideas/service'
 import { collectors } from './trading-ideas/sources'
@@ -34,6 +34,9 @@ import updateKey from '../build/update-public-key.json'
 import { UpdateService } from './updates/service'
 import { installationReason, startInstaller, completeUpdateHandshake } from './updates/installer'
 import { releaseUrl } from './updates/protocol'
+import { MailService } from './mail/service'
+import { MailStorage } from './mail/storage'
+import { registerMailHandlers } from './mail/ipc'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 app.setName('All In One Workspace')
@@ -73,6 +76,18 @@ const devURL = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
 const ideas = new IdeaService(join(store.directory, 'trading-ideas'), collectors(), () => {
   if (window && !window.isDestroyed()) window.webContents.send('ideas:changed')
 })
+const mail = new MailService(
+  new MailStorage(store.directory, safeStorage),
+  (url) => shell.openExternal(url),
+  (workspace, change) => {
+    if (window && !window.isDestroyed()) window.webContents.send('mail:changed', workspace, change)
+  },
+)
+
+function useWorkspace(snapshot: Snapshot) {
+  mail.activate(snapshot.workspace.accountId)
+  return snapshot
+}
 
 function trusted(event: IpcMainInvokeEvent) {
   if (
@@ -140,6 +155,7 @@ function createWindow() {
   })
   window.on('closed', () => {
     window = null
+    mail.deactivate()
   })
   window.webContents.on('render-process-gone', async () => {
     if (!window) return
@@ -219,13 +235,31 @@ else {
       callback(false),
     )
     session.defaultSession.setPermissionCheckHandler(() => false)
-    handle('workspace:load', () => store.load())
+    handle('workspace:load', async () => useWorkspace(await store.load()))
+    registerMailHandlers(
+      handle,
+      mail,
+      (id) => store.isActiveAccount(id),
+      () => window,
+    )
+    mail.startMaintenance()
     handle('workspace:save', (input) => store.save(input))
-    handle('account:create', (name) => store.createAccount(name))
+    handle('account:create', async (name) => useWorkspace(await store.createAccount(name)))
     handle('account:rename', (id, name) => store.renameAccount(id, name))
-    handle('account:switch', (id) => store.switchAccount(id))
+    handle('account:switch', async (id) => useWorkspace(await store.switchAccount(id)))
     handle('account:delete', async (id) => {
-      const snapshot = await store.deleteAccount(id, (accountId) => feishu.removeAccount(accountId))
+      let snapshot: Snapshot
+      try {
+        snapshot = useWorkspace(
+          await store.deleteAccount(id, async (accountId) => {
+            await feishu.removeAccount(accountId)
+            await mail.removeWorkspace(accountId)
+          }),
+        )
+      } catch (error) {
+        useWorkspace(await store.load())
+        throw error
+      }
       try {
         ideas.removeAccount(id)
       } catch {
@@ -254,6 +288,7 @@ else {
       feishu.resume()
       telegraph.resume()
       ideas.resume()
+      mail.resume()
       updates?.resume()
     })
     handle('account:export', async (id) => {
@@ -276,7 +311,7 @@ else {
       if (choice.canceled || !choice.filePaths[0]) return null
       const bytes = await readFile(choice.filePaths[0])
       if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('导入文件超过 20 MB 限制')
-      return store.importAccount(JSON.parse(bytes.toString('utf8')))
+      return useWorkspace(await store.importAccount(JSON.parse(bytes.toString('utf8'))))
     })
     handle('workspace:finish-close', () => {
       if (!closeRequested) return
@@ -376,5 +411,6 @@ else {
     feishu.dispose()
     telegraph.dispose()
     ideas.dispose()
+    mail.dispose()
   })
 }

@@ -16,7 +16,8 @@ import {
 import { errorMessage } from '../shared/model'
 import { IdeaNotesForm, ManualIdeaForm } from './editors'
 import { publicationLabel, timeLabel } from './presentation'
-import { ChoicePicker, DatePicker, choices } from './pickers'
+import { ChoicePicker } from '../components/ChoicePicker'
+import { DatePicker, choices } from './pickers'
 import './ideas.css'
 
 const categoryChoices = [{ value: '', label: '全部类别' }, ...choices(categories)] as const
@@ -179,11 +180,16 @@ export default function IdeasPage({ view, onBack }: { view: IdeaView; onBack: ()
 
   return (
     <main className="ideas-page">
-      <header className="ideas-page-header">
-        <div className="ideas-page-title">
+      <header className="workspace-detail-header">
+        <div className="ideas-page-title workspace-detail-title">
           <BookOpen size={22} aria-hidden="true" />
           <h1>交易灵感</h1>
-          <button type="button" className="ideas-back" autoFocus onClick={onBack}>
+          <button
+            type="button"
+            className="ideas-back workspace-detail-back"
+            autoFocus
+            onClick={onBack}
+          >
             <ArrowLeft size={16} aria-hidden="true" /> 返回工作区
           </button>
         </div>

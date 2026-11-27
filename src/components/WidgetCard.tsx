@@ -9,6 +9,7 @@ import {
   Blocks,
   CalendarDays,
   Newspaper,
+  Mail,
 } from 'lucide-react'
 import type { WidgetInstance } from '../shared/model'
 import { errorMessage } from '../shared/model'
@@ -27,6 +28,8 @@ export function WidgetIcon({ icon, size = 18 }: { icon?: string; size?: number }
     <CalendarDays size={size} />
   ) : icon === 'news' ? (
     <Newspaper size={size} />
+  ) : icon === 'mail' ? (
+    <Mail size={size} />
   ) : (
     <Blocks size={size} />
   )
