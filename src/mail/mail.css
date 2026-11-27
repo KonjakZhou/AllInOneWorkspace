@@ -1,0 +1,292 @@
+.mail-card,
+.mail-feed,
+.mail-page-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mail-card {
+  height: 100%;
+  /* Saved cards from earlier builds can still scroll to the controls and first message. */
+  min-height: 140px;
+}
+
+.mail-card > .inline-error {
+  margin: 6px 10px;
+}
+
+.mail-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mail-controls .widget-actions {
+  flex: 0 0 auto;
+}
+
+.mail-filters {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mail-feed,
+.mail-feed-list {
+  flex: 1;
+}
+
+.mail-feed-list {
+  min-height: 0;
+  overflow: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.mail-feed-list:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+
+.mail-row {
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  padding-right: 8px;
+}
+
+.mail-row:hover,
+.mail-row:focus-within {
+  background: var(--control-hover);
+}
+
+.mail-row[data-selected='true'] {
+  background: var(--selected-surface);
+  box-shadow: inset 2px 0 var(--green);
+}
+
+.mail-row-main {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 8px 8px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.mail-row-main:focus-visible {
+  outline-offset: -3px;
+}
+
+.mail-row > .icon-button {
+  flex: 0 0 auto;
+  margin-top: 6px;
+}
+
+.mail-row-subject,
+.mail-correspondent,
+.mail-row-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mail-row-subject {
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.mail-correspondent,
+.mail-row-preview,
+.mail-row time {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mail-row-preview,
+.mail-row time {
+  color: var(--muted-ink);
+}
+
+.mail-row time {
+  font-variant-numeric: tabular-nums;
+}
+
+.mail-unread-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 6px 2px 0;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.mail-pull {
+  display: grid;
+  place-items: end center;
+  overflow: hidden;
+  background: var(--selected-surface);
+  color: var(--green);
+  font-size: 11px;
+}
+
+.mail-pull span {
+  padding: 8px;
+}
+
+.mail-feed-issue {
+  margin: 8px;
+  align-items: flex-start;
+  flex: 0 0 auto;
+  max-height: 30%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.mail-feed-issue strong {
+  font-weight: 600;
+}
+
+.mail-feed-issue button {
+  flex-shrink: 0;
+}
+
+.mail-more {
+  display: flex;
+  margin: 8px auto;
+}
+
+.mail-accounts {
+  max-height: min(210px, 32vh);
+}
+
+.mail-accounts + .form-stack {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.mail-accounts .account-row {
+  gap: 6px;
+}
+
+.mail-account-title {
+  font-size: 14px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.mail-account-notice {
+  margin: 0;
+}
+
+.mail-setup,
+.mail-setup .button-row {
+  flex-wrap: wrap;
+}
+
+.mail-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mail-page .workspace-detail-title > svg {
+  color: var(--green);
+}
+
+.mail-page-notice {
+  margin: 12px 20px 0;
+}
+
+.mail-page-content {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(232px, 0.85fr) minmax(0, 1.8fr);
+  min-height: 0;
+  margin: 14px 20px 20px;
+}
+
+.mail-page-list {
+  border-right: 1px solid var(--line);
+}
+
+.mail-detail {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.mail-detail-header {
+  margin-bottom: 16px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mail-detail-header h2 {
+  font-size: 20px;
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+
+.mail-detail-header dl {
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.mail-detail-header dl div {
+  display: flex;
+  gap: 9px;
+}
+
+.mail-detail-header dt,
+.mail-detail-feedback {
+  color: var(--muted-ink);
+}
+
+.mail-detail-header dt {
+  min-width: 3em;
+}
+
+.mail-detail-header dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mail-detail-header .button-row {
+  flex-wrap: wrap;
+}
+
+.mail-detail-feedback {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.mail-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mail-feed .spin {
+    animation: none;
+  }
+}
+.mail-setup-guide {
+  color: var(--green);
+  font-size: 12px;
+  text-underline-offset: 3px;
+}

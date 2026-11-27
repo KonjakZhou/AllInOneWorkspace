@@ -41,6 +41,7 @@ export class OneClickAuth implements OneClickFlow {
     private openBrowser: (url: string) => Promise<void>,
     private request: typeof fetch = fetch,
     private now = Date.now,
+    private scopes = FEISHU_SCOPES,
   ) {}
   async reopen(value: string) {
     let url: URL
@@ -214,7 +215,7 @@ export class OneClickAuth implements OneClickFlow {
   async authorize(config: FeishuConfig, prompt: (value: SetupPrompt) => void, signal: AbortSignal) {
     const data = await this.post(
       '/oauth/v1/device_authorization',
-      { client_id: config.appId, scope: FEISHU_SCOPES.join(' ') },
+      { client_id: config.appId, scope: this.scopes.join(' ') },
       signal,
       config,
     )

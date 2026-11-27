@@ -42,6 +42,10 @@ import { FeishuConnectionSettings } from './components/FeishuConnectionSettings'
 import type { Account } from './shared/model'
 import { errorMessage } from './shared/model'
 import { alignDisplacedCards } from './workspace/layout'
+import type { MailView } from './shared/mail'
+import MailPage from './mail/MailPage'
+import { OpenMailPage } from './mail/navigation'
+import { WorkspaceVisible } from './workspace/navigation'
 import type { IdeaView } from './shared/trading-ideas'
 import IdeasPage from './trading-ideas/IdeasPage'
 import { OpenIdeasPage } from './trading-ideas/navigation'
@@ -69,22 +73,55 @@ export default function App() {
   return <WorkspaceNavigation controller={controller} />
 }
 
+type WorkspaceSelection = { page: 'ideas'; view: IdeaView } | { page: 'mail'; view: MailView }
+
 function WorkspaceNavigation({ controller }: { controller: WorkspaceController }) {
-  const [selection, setSelection] = useState<IdeaView | null>(null)
-  const returnPoint = useRef<{ trigger: HTMLButtonElement; x: number; y: number } | null>(null)
+  const [selection, setSelection] = useState<WorkspaceSelection | null>(null)
+  const [mailView, setMailView] = useState<MailView | null>(null)
+  const returnPoint = useRef<{
+    trigger: HTMLButtonElement
+    card: HTMLElement | null
+    x: number
+    y: number
+  } | null>(null)
   const accountId = useSyncExternalStore(
     controller.subscribe,
     () => controller.getState().snapshot?.index.activeAccountId,
   )
-  const view = selection?.accountId === accountId ? selection : null
+  const page = selection?.view.accountId === accountId ? selection : null
+  const retainedMail = mailView?.accountId === accountId ? mailView : null
+  const mailActive = page?.page === 'mail'
 
-  const open = useCallback((next: IdeaView, trigger: HTMLButtonElement) => {
-    returnPoint.current = { trigger, x: window.scrollX, y: window.scrollY }
+  const open = useCallback((next: WorkspaceSelection, trigger: HTMLButtonElement) => {
+    returnPoint.current = {
+      trigger,
+      card: trigger.closest('article'),
+      x: window.scrollX,
+      y: window.scrollY,
+    }
     setSelection(next)
   }, [])
+  const openIdeas = useCallback(
+    (view: IdeaView, trigger: HTMLButtonElement) => {
+      open({ page: 'ideas', view }, trigger)
+    },
+    [open],
+  )
+  const openMail = useCallback(
+    (view: MailView, trigger: HTMLButtonElement) => {
+      setMailView(view)
+      open({ page: 'mail', view }, trigger)
+    },
+    [open],
+  )
+  const back = () => setSelection(null)
 
   useLayoutEffect(() => {
-    if (view) {
+    if (mailView && !retainedMail) setMailView(null)
+  }, [mailView, retainedMail])
+
+  useLayoutEffect(() => {
+    if (page) {
       const root = document.documentElement
       const oldOverflow = root.style.overflow
       root.style.overflow = 'hidden'
@@ -97,20 +134,38 @@ function WorkspaceNavigation({ controller }: { controller: WorkspaceController }
     if (!previous) return
     returnPoint.current = null
     window.scrollTo({ left: previous.x, top: previous.y, behavior: 'instant' })
-    if (previous.trigger.isConnected) previous.trigger.focus({ preventScroll: true })
-  }, [selection, view])
+    const target = previous.trigger.isConnected
+      ? previous.trigger
+      : previous.card?.querySelector<HTMLButtonElement>('[data-workspace-page-entry]')
+    if (target?.isConnected) target.focus({ preventScroll: true })
+  }, [selection, page])
 
   return (
-    <OpenIdeasPage.Provider value={open}>
-      <div className={view ? 'workspace-behind-ideas' : undefined} inert={Boolean(view)}>
-        <WorkspaceApp controller={controller} />
-      </div>
-      {view && (
-        <div className="ideas-screen">
-          <WorkspaceTitlebar />
-          <IdeasPage key={view.accountId} view={view} onBack={() => setSelection(null)} />
-        </div>
-      )}
+    <OpenIdeasPage.Provider value={openIdeas}>
+      <OpenMailPage.Provider value={openMail}>
+        <WorkspaceVisible.Provider value={!page}>
+          <div className={page ? 'workspace-behind-detail' : undefined} inert={Boolean(page)}>
+            <WorkspaceApp controller={controller} />
+          </div>
+        </WorkspaceVisible.Provider>
+        {page?.page === 'ideas' && (
+          <div className="workspace-detail-screen">
+            <WorkspaceTitlebar />
+            <IdeasPage key={page.view.accountId} view={page.view} onBack={back} />
+          </div>
+        )}
+        {retainedMail && (
+          <div className="workspace-detail-screen" hidden={!mailActive}>
+            <WorkspaceTitlebar />
+            <MailPage
+              key={retainedMail.accountId}
+              initialView={retainedMail}
+              active={mailActive}
+              onBack={back}
+            />
+          </div>
+        )}
+      </OpenMailPage.Provider>
     </OpenIdeasPage.Provider>
   )
 }

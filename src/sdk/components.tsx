@@ -1,10 +1,16 @@
 import { Component, type ReactNode } from 'react'
 import { AlertCircle, LoaderCircle, PackageOpen, RotateCcw } from 'lucide-react'
 
-export function WidgetLoading({ message = '正在加载…' }: { message?: string }) {
+export function WidgetLoading({
+  message = '正在加载…',
+  compact = false,
+}: {
+  message?: string
+  compact?: boolean
+}) {
   return (
-    <div className="widget-state">
-      <LoaderCircle className="spin" size={24} />
+    <div className={compact ? 'widget-state compact' : 'widget-state'} role="status">
+      <LoaderCircle className="spin" size={compact ? 18 : 24} />
       <p>{message}</p>
     </div>
   )
@@ -12,13 +18,17 @@ export function WidgetLoading({ message = '正在加载…' }: { message?: strin
 export function WidgetEmpty({
   message = '还没有内容',
   children,
+  icon = <PackageOpen size={26} />,
+  compact = false,
 }: {
   message?: string
   children?: ReactNode
+  icon?: ReactNode
+  compact?: boolean
 }) {
   return (
-    <div className="widget-state">
-      <PackageOpen size={26} />
+    <div className={compact ? 'widget-state compact' : 'widget-state'}>
+      {icon}
       <p>{message}</p>
       {children}
     </div>

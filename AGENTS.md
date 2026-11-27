@@ -6,6 +6,7 @@
 - Serve usable local data promptly. An explicit refresh or a live feed's freshness policy may revalidate with the source. Coalesce concurrent requests for the same data and respect the provider's cooldowns and rate limits.
 - Define cache keys, account or permission scope, expiry, size limits, and cleanup when adding a cache. Keep rebuildable caches separate from workspace data, backups, and exports. Respect each source's rules for what may be persisted. For example, Feishu calendar content stays in memory. Credentials use their own protected storage.
 - Authorization and remote writes are live operations. Reuse local state where applicable and confirm the outcome with the source.
+- Mail providers share the application policy in `src/shared/mail-policy.ts`, including encrypted summary caching, expiry and refresh. Keep differences in provider adapters limited to protocol, authentication and source capabilities; new providers inherit the same management rules. See [Mail management and limits](docs/mail.md).
 
 ## Frontend visual consistency
 
@@ -14,6 +15,7 @@
 - Match the surrounding UI's interaction states and behavior, including hover, focus-visible, active, selected, disabled, loading, empty, error, and success states where applicable. Preserve keyboard access, visible focus, readable contrast, and the window-size behavior already expected by the application.
 - When a genuinely new visual pattern is necessary, extend the global style system or a reusable shared primitive first, then consume it from the feature. Keep the extension compatible with existing screens and document or test the new convention when future components are expected to reuse it.
 - Verify frontend additions in their real application context and at the relevant supported window sizes. Treat a feature as incomplete if it functions correctly but is visually inconsistent with the rest of the application.
+- Use the shared `ChoicePicker` for in-app single-choice dropdowns, including filters and account forms. Its trigger owns icon spacing and its popover owns option and focus styles. Verify the open list inside cards and dialogs in the packaged app. See [Frontend style and verification](docs/frontend-style.md) for how to extend shared patterns and make new constraints testable.
 
 ## Runnable app artifact
 

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { mailBridge } from './mail/bridge'
 import type { ApiResult, DesktopAPI } from '../src/shared/api'
 import type { TradingIdeasAPI } from '../src/shared/trading-ideas'
 
@@ -24,6 +25,7 @@ const tradingIdeas: TradingIdeasAPI = {
   },
 }
 const api: DesktopAPI = {
+  mailFor: mailBridge,
   updates: {
     getState: () => invoke('updates:state'),
     check: () => invoke('updates:check'),

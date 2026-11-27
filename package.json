@@ -1,6 +1,6 @@
 {
   "name": "all-in-one-workspace",
-  "version": "1.1.2",
+  "version": "1.2.9",
   "private": true,
   "description": "A personal, extensible local desktop workspace",
   "author": "All In One Workspace contributors",
@@ -26,7 +26,9 @@
   },
   "dependencies": {
     "cheerio": "1.1.2",
+    "imapflow": "^2.12.2",
     "lucide-react": "1.77.0",
+    "mailparser": "^3.15.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-grid-layout": "2.3.0",
@@ -36,6 +38,7 @@
   "devDependencies": {
     "@playwright/test": "1.65.1",
     "@testing-library/react": "16.3.3",
+    "@types/mailparser": "^3.9.0",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
