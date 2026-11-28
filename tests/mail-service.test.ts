@@ -16,10 +16,17 @@ const second = '91ccc34e-b74f-4918-856e-3ebb2135afe2'
 const now = Date.UTC(2026, 10, 26, 10)
 const day = 86400000
 let directory: string
+const fixtures: { service: MailService; storage: MailStorage; directory: string }[] = []
 afterEach(async () => {
+  // Cache writes deliberately run in the background. Drain their queue before
+  // deleting fixtures, otherwise new files race recursive directory removal.
+  for (const fixture of fixtures) fixture.service.dispose()
+  for (const fixture of fixtures.splice(0)) {
+    await fixture.storage.cleanup()
+    await rm(fixture.directory, { recursive: true, force: true })
+  }
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
-  if (directory) await rm(directory, { recursive: true, force: true })
 })
 
 function row(account: string, id: string, time: number, sent = false): MailSummary {
@@ -94,6 +101,7 @@ async function setup(items: MailSummary[], google?: Providers['gmail']) {
   }
   const service = new MailService(storage, open, changed, drivers, () => clock)
   service.activate(work)
+  fixtures.push({ service, storage, directory })
   return {
     service,
     storage,

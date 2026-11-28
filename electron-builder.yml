@@ -20,4 +20,5 @@ mac:
     - dir
 dmg:
   title: All In One Workspace
-artifactName: '${productName}-${version}-${arch}.${ext}'
+# Release filenames use the package name; productName remains the App's display name.
+artifactName: '${name}-${version}-${arch}.${ext}'
