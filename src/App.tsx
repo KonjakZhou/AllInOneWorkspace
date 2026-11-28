@@ -315,11 +315,24 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
           <div className="brand-mark">
             <LayoutGrid size={23} strokeWidth={1.8} />
           </div>
-          <div>
-            <h1>
-              我的工作区<span className="brand-dot">.</span>
+          <div className="brand-copy">
+            <h1 title={account.name === '默认账号' ? '我的工作区' : `${account.name}的工作区`}>
+              {account.name === '默认账号' ? '我的工作区' : `${account.name}的工作区`}
+              <span className="brand-dot">.</span>
             </h1>
-            <p>给想法和日常，一个刚刚好的位置。</p>
+            <div className="workspace-meta">
+              <span>{widgets.length} 个组件</span>
+              <span>{today}</span>
+              <button
+                className={`save-state ${state.status === 'error' ? 'save-error' : ''}`}
+                onClick={() => void perform(controller.flush)}
+                aria-label={saveLabels[state.status]}
+                disabled={state.status !== 'error'}
+              >
+                {state.status === 'saving' ? <LoaderCircle size={12} className="spin" /> : <i />}
+                {saveLabels[state.status]}
+              </button>
+            </div>
           </div>
         </div>
         <div className="toolbar-actions">
@@ -369,32 +382,6 @@ function WorkspaceApp({ controller }: { controller: WorkspaceController }) {
         </div>
       </header>
       <main className="workspace-main" aria-busy={state.busy}>
-        <section className="workspace-heading">
-          <div>
-            <span className="eyebrow">YOUR WORKSPACE</span>
-            <h2>
-              {account.name === '默认账号' ? '从这里，开始今天' : `${account.name}的工作区`}
-              <span className="heading-dot" />
-            </h2>
-            <p>
-              {widgets.length
-                ? `${widgets.length} 个组件，各就各位。按自己的节奏，做重要的事。`
-                : '一张空白画布，无限种属于你的可能。'}
-            </p>
-          </div>
-          <div className="workspace-meta">
-            <span>{today}</span>
-            <button
-              className={`save-state ${state.status === 'error' ? 'save-error' : ''}`}
-              onClick={() => void perform(controller.flush)}
-              aria-label={saveLabels[state.status]}
-              disabled={state.status !== 'error'}
-            >
-              {state.status === 'saving' ? <LoaderCircle size={12} className="spin" /> : <i />}
-              {saveLabels[state.status]}
-            </button>
-          </div>
-        </section>
         {(state.error || state.notice) && (
           <div
             className={`notice ${state.error ? 'notice-error' : ''}`}

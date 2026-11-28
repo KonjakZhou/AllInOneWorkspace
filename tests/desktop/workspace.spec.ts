@@ -64,34 +64,6 @@ test('desktop lifecycle: edit, drag, resize, isolate accounts, close and restore
   await add('计数器')
   await add('计数器')
   await application.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].setSize(1100, 720),
-  )
-  await expect.poll(() => page.evaluate(() => innerHeight)).toBe(720)
-  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const titlebar = document.querySelector<HTMLElement>('.titlebar')!
-        const style = getComputedStyle(titlebar)
-        return {
-          scrolled: scrollY > 0,
-          top: titlebar.getBoundingClientRect().top,
-          height: titlebar.getBoundingClientRect().height,
-          position: style.position,
-          background: style.backgroundColor,
-        }
-      }),
-    )
-    .toEqual({
-      scrolled: true,
-      top: 0,
-      height: 52,
-      position: 'sticky',
-      background: 'rgba(244, 243, 239, 0.92)',
-    })
-  await page.screenshot({ path: 'test-results/workspace-titlebar-safe-area.png' })
-  await page.evaluate(() => scrollTo(0, 0))
-  await application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setSize(1440, 960),
   )
   await expect.poll(() => page.evaluate(() => innerHeight)).toBeGreaterThan(900)
@@ -157,6 +129,33 @@ test('desktop lifecycle: edit, drag, resize, isolate accounts, close and restore
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
+  // The compact header lets one row fit without scrolling. Use the expanded,
+  // rearranged layout to verify that the window controls stay clear on scroll.
+  await expect.poll(() => page.evaluate(() => innerHeight)).toBe(720)
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const titlebar = document.querySelector<HTMLElement>('.titlebar')!
+        const style = getComputedStyle(titlebar)
+        return {
+          scrolled: scrollY > 0,
+          top: titlebar.getBoundingClientRect().top,
+          height: titlebar.getBoundingClientRect().height,
+          position: style.position,
+          background: style.backgroundColor,
+        }
+      }),
+    )
+    .toEqual({
+      scrolled: true,
+      top: 0,
+      height: 52,
+      position: 'sticky',
+      background: 'rgba(244, 243, 239, 0.92)',
+    })
+  await page.screenshot({ path: 'test-results/workspace-titlebar-safe-area.png' })
+  await page.evaluate(() => scrollTo(0, 0))
   await page.screenshot({ path: 'test-results/workspace-minimum-window.png', fullPage: true })
   expect(errors).toEqual([])
 })
