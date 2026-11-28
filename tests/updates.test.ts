@@ -117,6 +117,27 @@ describe('signed update protocol and archive validation', () => {
   })
 })
 describe('update service', () => {
+  it.each(['All In One Workspace', 'All.In.One.Workspace', 'all-in-one-workspace'])(
+    'downloads signed %s filenames while preserving the App bundle name',
+    async (prefix) => {
+      const s = await setup()
+      try {
+        s.fixture.manifest.zip.name = `${prefix}-1.2.0-arm64.zip`
+        s.fixture.manifest.dmg.name = `${prefix}-1.2.0-arm64.dmg`
+        await s.service.check()
+        expect(s.service.getState()).toMatchObject({ phase: 'ready', version: '1.2.0' })
+        expect(String(s.fetcher.mock.calls.at(-1)![0])).toBe(
+          `https://github.com/KonjakZhou/AllInOneWorkspace/releases/download/v1.2.0/${encodeURIComponent(s.fixture.manifest.zip.name)}`,
+        )
+        const update = await s.service.prepareInstall()
+        expect(update.manifest.zip.name).toBe(s.fixture.manifest.zip.name)
+        // The archive fixture contains All In One Workspace.app regardless of its ZIP filename.
+        await expect(inspectArchive(update.archive)).resolves.toBeUndefined()
+      } finally {
+        s.service.dispose()
+      }
+    },
+  )
   it('coalesces checks and downloads, then restores verified disk data without network', async () => {
     const s = await setup()
     await Promise.all([s.service.check(), s.service.check()])

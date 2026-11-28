@@ -1,0 +1,158 @@
+name: Release macOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The lock spans ALL jobs, including allocation and promotion of latest.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+
+env:
+  # Install explicitly; changing only version metadata must not reinstall dependencies.
+  pnpm_config_verify_deps_before_run: 'false'
+
+jobs:
+  prepare:
+    if: github.repository == 'KonjakZhou/AllInOneWorkspace' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      version: ${{ steps.plan.outputs.version }}
+      commit: ${{ steps.plan.outputs.commit }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install tooling without dependency lifecycle scripts
+        run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Allocate or resume the release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          node scripts/ci-release.mjs prepare
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'build'
+    runs-on: macos-15
+    timeout-minutes: 45
+    # This runner never receives the signing key or a write token.
+    permissions:
+      contents: read
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install pinned dependencies on Apple Silicon
+        run: |
+          test "$(uname -m)" = arm64
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile
+      - name: Test and build
+        run: node scripts/release.mjs build-unsigned
+      - name: Verify the native installer and packaged ZIP
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          pnpm test:installer
+          WORKSPACE_TEST_ARCHIVE="$PWD/release/all-in-one-workspace-${RELEASE_VERSION}-arm64.zip" pnpm exec vitest run tests/updates.test.ts -t 'actual packaged'
+      - name: Start the packaged app with isolated local data
+        env:
+          WORKSPACE_TEST_APP: release/mac-arm64/All In One Workspace.app
+          WORKSPACE_TEST_EXECUTABLE: release/mac-arm64/All In One Workspace.app/Contents/MacOS/All In One Workspace
+        run: pnpm exec playwright test tests/desktop/release-smoke.spec.ts
+      - name: Verify App and read-only DMG contents
+        run: node scripts/verify-release.mjs local-unsigned
+      - name: Pass only verified unsigned release assets to the publishing runner
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unsigned-release
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          path: |
+            release/all-in-one-workspace-${{ needs.prepare.outputs.version }}-arm64.zip
+            release/all-in-one-workspace-${{ needs.prepare.outputs.version }}-arm64.dmg
+            release/build-manifest.json
+
+  publish:
+    needs: [prepare, build]
+    if: >-
+      !cancelled() && needs.prepare.result == 'success' &&
+      (needs.prepare.outputs.mode == 'verify' ||
+      (needs.prepare.outputs.mode == 'build' && needs.build.result == 'success'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install verification tooling without dependency lifecycle scripts
+        run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Receive the verified build from this workflow run
+        if: needs.prepare.outputs.mode == 'build'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: unsigned-release
+          path: release
+      - name: Sign the verified build
+        if: needs.prepare.outputs.mode == 'build'
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY }}
+        run: node scripts/sign-ci-release.mjs
+      - name: Verify all five signed assets
+        if: needs.prepare.outputs.mode == 'build'
+        run: node scripts/verify-release.mjs assets
+      - name: Upload and re-download the draft for verification
+        if: needs.prepare.outputs.mode == 'build'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pnpm release
+          node scripts/verify-release.mjs remote-draft
+      - name: Publish and set latest
+        if: needs.prepare.outputs.mode == 'build'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci-release.mjs publish
+      - name: Verify public downloads and the README link
+        run: node scripts/verify-release.mjs remote-public
+      - name: Clean up signing material
+        if: always()
+        run: rm -f "$HOME/.config/all-in-one-workspace/release-signing/private.pem"

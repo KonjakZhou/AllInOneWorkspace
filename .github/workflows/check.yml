@@ -1,0 +1,31 @@
+name: Check pull request
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      pnpm_config_verify_deps_before_run: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm test

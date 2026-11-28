@@ -13,6 +13,7 @@ import {
   STABLE,
 } from '../electron/updates/protocol.ts'
 import { hashFile } from '../electron/updates/files.ts'
+import { prepareReleaseFiles } from './release-assets.mjs'
 const root = resolve(import.meta.dirname, '..')
 process.chdir(root)
 const keyFile = join(homedir(), '.config', 'all-in-one-workspace', 'release-signing', 'private.pem')
@@ -28,6 +29,8 @@ function clean() {
   if (run('git', ['status', '--porcelain'], true))
     throw new Error('请先提交源码和版本号，再制作正式发布包')
   if (!STABLE.test(pkg.version)) throw new Error('仅支持稳定的三段版本号')
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(pkg.name))
+    throw new Error('发布包名称仅支持小写字母、数字和连字符，避免 GitHub 改写附件名')
 }
 async function publicKey() {
   return JSON.parse(await readFile(publicFile, 'utf8')).publicKey
@@ -45,9 +48,26 @@ async function privateKey() {
   return key
 }
 async function asset(extension) {
-  const name = `All In One Workspace-${pkg.version}-arm64.${extension}`
+  const name = `${pkg.name}-${pkg.version}-arm64.${extension}`
   const path = join('release', name)
   return { name, size: (await stat(path)).size, sha256: await hashFile(path) }
+}
+async function signBuild(manifest, key) {
+  if (
+    manifest.commit !== run('git', ['rev-parse', 'HEAD'], true) ||
+    manifest.version !== pkg.version
+  )
+    throw new Error('待签名构建不是当前源码和版本')
+  for (const extension of ['zip', 'dmg']) {
+    if (JSON.stringify(await asset(extension)) !== JSON.stringify(manifest[extension]))
+      throw new Error('待签名安装包已变化，请重新构建')
+  }
+  const bytes = Buffer.from(JSON.stringify(manifest, null, 2) + '\n')
+  const signature = sign(null, bytes, key).toString('base64')
+  verifyManifest(bytes, signature, await publicKey())
+  await writeFile(join('release', MANIFEST_NAME), bytes)
+  await writeFile(join('release', SIGNATURE_NAME), signature + '\n')
+  await prepareReleaseFiles('release', manifest)
 }
 const mode = process.argv[2]
 if (mode === 'keygen') {
@@ -75,10 +95,10 @@ if (mode === 'keygen') {
   console.log(
     `更新签名密钥已生成。请备份仓库外的私钥：${keyFile}\n仅提交 build/update-public-key.json。`,
   )
-} else if (mode === 'build') {
+} else if (mode === 'build' || mode === 'build-unsigned') {
   clean()
   const commit = run('git', ['rev-parse', 'HEAD'], true)
-  const key = await privateKey()
+  const key = mode === 'build' ? await privateKey() : undefined
   run('pnpm', ['test'])
   run('pnpm', ['dist'])
   clean()
@@ -96,12 +116,19 @@ if (mode === 'keygen') {
     zip: await asset('zip'),
     dmg: await asset('dmg'),
   })
-  const bytes = Buffer.from(JSON.stringify(manifest, null, 2) + '\n')
-  const signature = sign(null, bytes, key).toString('base64')
-  verifyManifest(bytes, signature, await publicKey())
-  await writeFile(join('release', MANIFEST_NAME), bytes)
-  await writeFile(join('release', SIGNATURE_NAME), signature + '\n')
-  console.log('发布包和签名已生成；请启动 App 验证后运行 pnpm release 创建草稿。')
+  await writeFile(join('release', 'build-manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
+  if (key) await signBuild(manifest, key)
+  console.log(
+    key
+      ? '发布包和签名已生成；请启动 App 验证后运行 pnpm release 创建草稿。'
+      : '构建完成，等待验证后签名。',
+  )
+} else if (mode === 'sign') {
+  clean()
+  const manifest = manifestSchema.parse(
+    JSON.parse(await readFile(join('release', 'build-manifest.json'), 'utf8')),
+  )
+  await signBuild(manifest, await privateKey())
 } else if (mode === 'draft') {
   clean()
   const bytes = await readFile(join('release', MANIFEST_NAME))
@@ -129,22 +156,15 @@ if (mode === 'keygen') {
     throw new Error('origin 与固定发布仓库不匹配')
   const ref = JSON.parse(run('gh', ['api', `repos/${REPOSITORY}/commits/${tag}`], true))
   if (ref.sha !== manifest.commit) throw new Error('请先推送正确的源码和标签')
-  for (const item of [manifest.zip, manifest.dmg]) {
-    const path = join('release', item.name)
-    if ((await stat(path)).size !== item.size || (await hashFile(path)) !== item.sha256)
-      throw new Error('发布包已变化，拒绝上传')
-  }
   const existing = spawnSync(
     'gh',
     ['release', 'view', tag, '--repo', REPOSITORY, '--json', 'isDraft'],
     { encoding: 'utf8' },
   )
-  const files = [manifest.zip.name, manifest.dmg.name, MANIFEST_NAME, SIGNATURE_NAME].map((name) =>
-    join('release', name),
-  )
+  if (existing.status === 0 && !JSON.parse(existing.stdout).isDraft)
+    throw new Error('正式版本已发布，禁止覆盖；请使用新版本号')
+  const files = await prepareReleaseFiles('release', manifest)
   if (existing.status === 0) {
-    if (!JSON.parse(existing.stdout).isDraft)
-      throw new Error('正式版本已发布，禁止覆盖；请使用新版本号')
     run('gh', ['release', 'upload', tag, ...files, '--repo', REPOSITORY, '--clobber'])
   } else {
     run('gh', [
@@ -170,4 +190,4 @@ if (mode === 'keygen') {
       throw new Error('草稿附件未上传完整，请重试')
   }
   console.log(`草稿已准备：${assets.url}\n请核对发布说明和安装包后，在 GitHub 点击发布。`)
-} else throw new Error('Expected keygen, build or draft')
+} else throw new Error('Expected keygen, build, build-unsigned, sign or draft')
