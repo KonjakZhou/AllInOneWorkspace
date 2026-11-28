@@ -182,18 +182,25 @@ button svg {
   border-radius: 50%;
 }
 .toolbar {
-  padding: 16px 36px 25px;
+  padding: 16px 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
   border-bottom: 1px solid #dfe3d880;
 }
 .brand {
   display: flex;
   gap: 13px;
   align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+.brand-copy {
+  min-width: 0;
 }
 .brand-mark {
+  flex-shrink: 0;
   height: 48px;
   width: 48px;
   border-radius: 15px;
@@ -218,21 +225,19 @@ button svg {
   letter-spacing: 1px;
   font-weight: 650;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .brand-dot {
   color: #879c76;
   margin-left: 1px;
 }
-.brand p {
-  margin-top: 5px;
-  font-size: 11px;
-  letter-spacing: 0.4px;
-  color: #959b92;
-}
 .toolbar-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 .button {
   min-height: 39px;
@@ -448,14 +453,8 @@ button svg {
   white-space: nowrap;
 }
 .workspace-main {
-  padding: 35px 36px 24px;
+  padding: 18px 36px 24px;
   flex: 1;
-}
-.workspace-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 26px;
 }
 .eyebrow {
   font-family: 'SFMono-Regular', Consolas, monospace;
@@ -464,35 +463,18 @@ button svg {
   color: #959e8c;
   font-weight: 600;
 }
-.workspace-heading h2 {
-  margin-top: 10px;
-  font-size: 25px;
-  font-weight: 560;
-  letter-spacing: 0.4px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.heading-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #acb89a;
-}
-.workspace-heading p {
-  font-size: 12px;
-  color: #91988d;
-  margin-top: 10px;
-  letter-spacing: 0.3px;
-}
 .workspace-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 5px;
   font-size: 11px;
-  color: #87907e;
-  padding-bottom: 2px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.workspace-meta > * {
+  white-space: nowrap;
 }
 .save-state {
   background: transparent;
@@ -1628,13 +1610,10 @@ ul.account-list {
     padding-right: 28px;
   }
   .workspace-main {
-    padding: 27px 28px 18px;
+    padding: 16px 28px 18px;
   }
   .brand h1 {
     font-size: 21px;
-  }
-  .brand p {
-    font-size: 10px;
   }
   .starter-strip {
     gap: 18px;
